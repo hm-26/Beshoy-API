@@ -35,18 +35,15 @@ class AppServiceProvider extends ServiceProvider
             return [
                 Limit::perMinute(6)->by('ip:'.$request->ip()),
                 Limit::perHour(30)->by('email:'.$email.'|'.$request->ip()),
-                // Global cap: X-Forwarded-For is spoofable if someone calls the API host directly, so per-IP limits
-                // alone can be dodged. This one can't.
-                Limit::perHour(60)->by('login-global'),
             ];
         });
 
-        // Secret-link check: brute-forcing a 48-char secret is hopeless anyway, but keep it noisy-proof.
+        // Secret-link check. Only per-IP on purpose: a global cap would let any stranger lock the admin out, and
+        // brute-forcing a 48-char secret is hopeless anyway.
         RateLimiter::for('gate', function (Request $request) {
             return [
                 Limit::perMinute(5)->by('gate-ip:'.$request->ip()),
                 Limit::perHour(20)->by('gate-ip-h:'.$request->ip()),
-                Limit::perHour(100)->by('gate-global'),
             ];
         });
     }

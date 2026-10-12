@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Cookie;
 
@@ -40,8 +41,14 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        // Without the secret-link cookie the login endpoint pretends not to exist.
+        // (The `login.gate` middleware already answered 404 for requests without an open gate.)
         abort_unless(LoginGate::isOpen($request), 404);
+
+        // Total wrong passwords per hour across all gates. Only someone who already has the secret link can reach
+        // this, so it cannot be used by strangers to lock the admin out.
+        if (RateLimiter::tooManyAttempts('login-fail-global', 20)) {
+            return response()->json(['message' => 'Too many attempts. Try again later.'], 429);
+        }
 
         // After 5 wrong passwords the opened gate is burned: the secret link is needed again.
         $failKey = 'login-gate-fail:'.LoginGate::fingerprint($request);
@@ -51,8 +58,13 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->validated('email'))->first();
 
+        // Always run one bcrypt comparison, so the response time does not reveal whether the e-mail exists.
+        $hash = $user?->password ?? '$2y$12$pZU/m5nRxT1dMmz0TMHYBOZzT7hpIgXpvOKteLOGQ/AmYVw8HvJqO';
+        $passwordOk = Hash::check($request->validated('password'), $hash);
+
         // One generic message for "no such user", "not an admin" and "wrong password".
-        if (! $user || ! $user->is_admin || ! Hash::check($request->validated('password'), $user->password)) {
+        if (! $user || ! $user->is_admin || ! $passwordOk) {
+            RateLimiter::hit('login-fail-global', 3600);
             Cache::add($failKey, 0, now()->addMinutes(LoginGate::minutes() + 1));
             Cache::increment($failKey);
 

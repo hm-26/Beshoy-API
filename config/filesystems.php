@@ -33,7 +33,7 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            'serve' => false, // files are only streamed by AttachmentController (signed links)
             'throw' => false,
             'report' => false,
         ],

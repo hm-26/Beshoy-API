@@ -22,7 +22,8 @@ class CookieAuth
 
     public function handle(Request $request, Closure $next): Response
     {
-        $token = $request->cookie(self::SECURE) ?: $request->cookie(self::PLAIN);
+        // Over HTTPS only the __Host- cookie counts: a plain-named one could be planted from a sibling sub-domain.
+        $token = $request->isSecure() ? $request->cookie(self::SECURE) : $request->cookie(self::PLAIN);
 
         if (is_string($token) && $token !== '' && ! $request->bearerToken()) {
             if (! $request->isMethodSafe()) {

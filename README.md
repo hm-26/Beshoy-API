@@ -56,7 +56,8 @@ The admin login is hidden behind `https://your-site/0xGlitch?secret=<ADMIN_LOGIN
 2. Opening the link sends the secret once to `POST /api/auth/gate`; the API answers with a signed HttpOnly, SameSite=Strict cookie
    (`__Host-login_gate`, 10 min, bound to the browser's User-Agent) and the front-end removes the secret from the address bar.
    Prefer the **fragment form** `/0xGlitch#secret=<token>`: a `#fragment` is never sent to any server, so it can't end up in Vercel/Railway access logs (`?secret=` still works).
-3. Only with that cookie does `POST /api/auth/login` work (404 otherwise). A successful sign-in or logout closes the gate again, and so do 5 wrong passwords.
+3. Only with that cookie does `POST /api/auth/login` work: the `login.gate` middleware answers a plain 404 *before* validation and rate limiting. The gate also lives server-side (cache), so closing it revokes even a copied cookie. A successful sign-in, a logout or 5 wrong passwords close it.
+4. Extra guards: over HTTPS only the `__Host-` cookies are accepted (no cookie tossing), one bcrypt check always runs (no e-mail timing leak), and 20 wrong passwords per hour across all gates lock the sign-in (reachable only with the secret, so strangers cannot use it to lock you out).
 
 If `ADMIN_LOGIN_SECRET` is empty the login is locked for everyone. Changing it invalidates every open gate. Treat the link like a password.
 

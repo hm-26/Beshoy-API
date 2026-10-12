@@ -35,7 +35,7 @@ Route::prefix('auth')->group(function () {
     // secret login link: the secret is checked here, the answer is a short-lived HttpOnly cookie that /login requires
     Route::post('/gate', [AuthController::class, 'openGate'])->middleware('throttle:gate');
     Route::get('/gate', [AuthController::class, 'gateStatus'])->middleware('throttle:60,1');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('/login', [AuthController::class, 'login'])->middleware(['login.gate', 'throttle:login']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);

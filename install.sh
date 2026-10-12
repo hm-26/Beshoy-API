@@ -38,5 +38,5 @@ echo
 echo "Done. Start the API:   cd $TARGET && php artisan serve      (http://localhost:8000)"
 echo "Admin login:           $(grep '^ADMIN_EMAIL=' .env | cut -d= -f2)"
 [ -n "$GENERATED" ] && echo "Admin password:        $GENERATED   (also stored in .env — change it!)"
-[ -n "$GATE_SECRET" ] && echo "Secret login link:     http://localhost:5173/0xGlitch?secret=$GATE_SECRET"
+[ -n "$GATE_SECRET" ] && echo "Secret login link:     http://localhost:5173/0xGlitch#secret=$GATE_SECRET"
 echo "Frontend .env:         VITE_API_PROXY=http://localhost:8000   VITE_API_FALLBACK=false"
