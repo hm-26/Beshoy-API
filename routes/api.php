@@ -14,9 +14,12 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
-Route::get('/profile', [ProfileController::class, 'show']);
-Route::get('/reports', [ReportController::class, 'index']);
-Route::get('/reports/{id}', [ReportController::class, 'show'])->whereNumber('id');
+// Generous per-IP cap on the public read endpoints: stops scraping / request floods without touching normal visitors.
+Route::middleware('throttle:300,1')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::get('/reports', [ReportController::class, 'index']);
+    Route::get('/reports/{id}', [ReportController::class, 'show'])->whereNumber('id');
+});
 
 // Attachment bytes (images / videos / documents). The URL is a short-lived *signed* link that the report JSON
 // hands out, so files of draft reports stay private and <img>/<video> tags work without an Authorization header.

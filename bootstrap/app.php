@@ -17,14 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Railway/Vercel sit in front of the app: trust X-Forwarded-* ONLY when the request really comes from them.
-        // Trusting '*' would let any client forge X-Forwarded-For and dodge the per-IP login/gate rate limits.
-        // Default = private/internal ranges (where platform proxies connect from). Override with TRUSTED_PROXIES
-        // (comma separated IPs/CIDRs) if your host's proxy uses other addresses.
-        $middleware->trustProxies(at: array_values(array_filter(array_map('trim', explode(',', (string) env(
-            'TRUSTED_PROXIES',
-            '127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,fc00::/7'
-        ))))));
+        // Railway/Vercel sit in front of the app (Vercel -> Railway), so the real client IP only exists in X-Forwarded-For.
+        // '*' (the default) trusts every hop, which keeps the real-IP detection working behind that chain, BUT it also means a
+        // client that talks to the Railway URL directly can forge X-Forwarded-For and dodge the per-IP rate limits.
+        // That is low impact here (the login still needs the 48-char gate secret, a per-gate failure cap and a global cap),
+        // and it is closed completely by setting TRUSTED_PROXIES in the environment to the real proxy IPs/CIDRs
+        // (comma separated). Only set it once you have confirmed those addresses — a wrong value makes every visitor
+        // share one IP and can break the login throttle.
+        $trusted = trim((string) env('TRUSTED_PROXIES', '*'));
+        $middleware->trustProxies(at: $trusted === '*' ? '*' : array_values(array_filter(array_map('trim', explode(',', $trusted)))));
         $middleware->api(prepend: [CookieAuth::class]);
         $middleware->append(SecurityHeaders::class);
         $middleware->alias([
