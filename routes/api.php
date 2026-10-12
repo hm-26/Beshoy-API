@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\AdminAttachmentController;
+use App\Http\Controllers\Api\AdminMessageController;
 use App\Http\Controllers\Api\AdminReportController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\VisitController;
@@ -24,6 +26,9 @@ Route::middleware('throttle:300,1')->group(function () {
 });
 // Counts this browser once (HttpOnly cookie) and returns the unique-visitor total.
 Route::post('/visits', [VisitController::class, 'hit'])->middleware('throttle:30,1');
+
+// Contact form ("send through the website"). Strict per-IP limits, see the 'contact' limiter in AppServiceProvider.
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact');
 
 // Attachment bytes (images / videos / documents). The URL is a short-lived *signed* link that the report JSON
 // hands out, so files of draft reports stay private and <img>/<video> tags work without an Authorization header.
@@ -57,6 +62,11 @@ Route::prefix('auth')->group(function () {
 */
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:120,1'])->group(function () {
     Route::put('/profile', [ProfileController::class, 'update']);
+
+    Route::get('/messages', [AdminMessageController::class, 'index']);
+    Route::get('/messages/unread-count', [AdminMessageController::class, 'unreadCount']);
+    Route::patch('/messages/{message}', [AdminMessageController::class, 'update'])->whereNumber('message');
+    Route::delete('/messages/{message}', [AdminMessageController::class, 'destroy'])->whereNumber('message');
 
     Route::get('/reports', [AdminReportController::class, 'index']);
     Route::post('/reports', [AdminReportController::class, 'store']);

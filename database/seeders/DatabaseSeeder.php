@@ -48,6 +48,7 @@ class DatabaseSeeder extends Seeder
             'bio' => $p['bio'] ?? null,
             'location' => $p['location'] ?? null,
             'skills' => $p['skills'] ?? [],
+            'contact' => $p['contact'] ?? null,
             'ar' => $p['ar'] ?? null,
         ]);
     }

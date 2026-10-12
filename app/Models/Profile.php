@@ -6,11 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class Profile extends Model
 {
-    protected $fillable = ['name', 'role', 'bio', 'location', 'skills', 'ar'];
+    /** Contact fields the admin can publish. Anything else is dropped by the form request and the resource. */
+    public const CONTACT_KEYS = [
+        'email', 'phone', 'whatsapp', 'telegram',
+        'linkedin', 'github', 'x', 'facebook', 'instagram', 'youtube', 'website',
+    ];
+
+    protected $fillable = ['name', 'role', 'bio', 'location', 'skills', 'contact', 'ar'];
 
     protected function casts(): array
     {
-        return ['skills' => 'array', 'ar' => 'array'];
+        return ['skills' => 'array', 'contact' => 'array', 'ar' => 'array'];
     }
 
     /** The site has a single profile row. */

@@ -39,6 +39,14 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // Public contact form: a handful of messages per IP, so it cannot be used to flood the admin's inbox.
+        RateLimiter::for('contact', function (Request $request) {
+            return [
+                Limit::perMinute(3)->by('contact-ip:'.$request->ip()),
+                Limit::perHour(10)->by('contact-ip-h:'.$request->ip()),
+            ];
+        });
+
         // Secret-link check. Only per-IP on purpose: a global cap would let any stranger lock the admin out, and
         // brute-forcing a 48-char secret is hopeless anyway.
         RateLimiter::for('gate', function (Request $request) {

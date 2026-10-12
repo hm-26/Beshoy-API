@@ -38,7 +38,10 @@ and run `npm run dev`. Open `http://localhost:5173/login`.
 | GET | `/api/health`, `/api/profile`, `/api/reports`, `/api/reports/{id}` | public (drafts are hidden) |
 | POST | `/api/auth/login` | public, 6 attempts / minute |
 | GET | `/api/auth/me` · POST `/api/auth/logout` | signed-in |
-| PUT | `/api/admin/profile` | admin |
+| POST | `/api/contact` | public, 3 / minute and 10 / hour per IP — a visitor's message sent through the site |
+| GET | `/api/admin/messages` · `/api/admin/messages/unread-count` | admin — inbox |
+| PATCH / DELETE | `/api/admin/messages/{id}` | admin — `{ "read": true|false }` / delete |
+| PUT | `/api/admin/profile` | admin (now also accepts `contact`) |
 | GET / POST | `/api/admin/reports` | admin (list includes drafts / create) |
 | GET / PUT / DELETE | `/api/admin/reports/{id}` | admin |
 | POST | `/api/admin/reports/{id}/attachments` | admin — multipart `files[]` (+ `caption`, `captionAr`); images, videos, PDF/text/zip |
@@ -47,6 +50,15 @@ and run `npm run dev`. Open `http://localhost:5173/login`.
 
 Login returns `{ "data": { "token", "expiresAt", "user" } }`; send the token as `Authorization: Bearer <token>`.
 Tokens last 12 hours and carry the `admin` ability.
+
+## Contact details and messages
+
+- **Contact details** live on the profile: `GET /api/profile` returns `contact: { email, phone, whatsapp, telegram, linkedin, github, x, facebook, instagram, youtube, website }`
+  (only the filled-in keys). The admin edits them with `PUT /api/admin/profile`; links must be `http(s)` URLs, phone/WhatsApp are digits (+, spaces, dashes allowed), Telegram is a username.
+- **Contact form** — `POST /api/contact` `{ name, email, phone?, subject?, message }` stores the message (the IP is kept only as a keyed hash). A hidden `hp` field is a honeypot:
+  if it is filled the API answers `201` but stores nothing. The admin reads, marks read/unread and deletes messages from the **Messages** tab.
+  The other channels (e-mail / WhatsApp / Telegram) are handled in the browser: it opens the app with the message pre-filled, using the details above.
+- Run `php artisan migrate` once to add `profiles.contact` and the `contact_messages` table. Tests: `php artisan test --filter=ContactTest`.
 
 ## Secret login link
 
