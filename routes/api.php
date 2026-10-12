@@ -31,8 +31,8 @@ Route::get('/attachments/{attachment}/file', [AttachmentController::class, 'file
 |--------------------------------------------------------------------------
 */
 Route::prefix('auth')->group(function () {
-    // 6 attempts per minute per IP — slows down password guessing
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+    // rate limit defined in AppServiceProvider (per IP and per e-mail) — slows down password guessing
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
