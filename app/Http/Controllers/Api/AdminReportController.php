@@ -14,26 +14,26 @@ class AdminReportController extends Controller
 {
     public function index(): AnonymousResourceCollection
     {
-        return ReportResource::collection(Report::orderBy('id')->get()); // includes drafts
+        return ReportResource::collection(Report::withCount('attachments')->orderBy('id')->get()); // includes drafts
     }
 
     public function show(Report $report): ReportResource
     {
-        return new ReportResource($report);
+        return new ReportResource($report->load('attachments'));
     }
 
     public function store(ReportRequest $request): JsonResponse
     {
         $report = Report::create($request->toModelAttributes());
 
-        return (new ReportResource($report->fresh()))->response()->setStatusCode(201);
+        return (new ReportResource($report->fresh('attachments')))->response()->setStatusCode(201);
     }
 
     public function update(ReportRequest $request, Report $report): ReportResource
     {
         $report->update($request->toModelAttributes());
 
-        return new ReportResource($report->fresh());
+        return new ReportResource($report->fresh('attachments'));
     }
 
     public function destroy(Report $report): Response

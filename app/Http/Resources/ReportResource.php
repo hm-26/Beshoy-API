@@ -31,6 +31,9 @@ class ReportResource extends JsonResource
             'recommendation' => $r->recommendation,
             'ar' => $r->ar,
             'published' => (bool) $r->published,
+            // Only present when the controller loaded them (detail views) / counted them (lists).
+            'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
+            'attachmentsCount' => $this->when(isset($r->attachments_count), fn () => (int) $r->attachments_count),
         ];
     }
 }

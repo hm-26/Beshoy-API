@@ -25,6 +25,7 @@ if ! grep -q "^ADMIN_PASSWORD=" .env; then
   echo "ADMIN_PASSWORD=$GENERATED" >> .env
 fi
 add_env CORS_ALLOWED_ORIGINS "http://localhost:5173"
+add_env REPORT_UPLOAD_MAX_MB "100"
 
 php artisan migrate --seed --force
 

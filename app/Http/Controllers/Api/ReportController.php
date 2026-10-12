@@ -12,11 +12,11 @@ class ReportController extends Controller
 {
     public function index(): AnonymousResourceCollection
     {
-        return ReportResource::collection(Report::published()->orderBy('id')->get());
+        return ReportResource::collection(Report::published()->withCount('attachments')->orderBy('id')->get());
     }
 
     public function show(int $id): ReportResource
     {
-        return new ReportResource(Report::published()->findOrFail($id));
+        return new ReportResource(Report::published()->with('attachments')->findOrFail($id));
     }
 }

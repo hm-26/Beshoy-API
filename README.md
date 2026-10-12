@@ -41,9 +41,25 @@ and run `npm run dev`. Open `http://localhost:5173/login`.
 | PUT | `/api/admin/profile` | admin |
 | GET / POST | `/api/admin/reports` | admin (list includes drafts / create) |
 | GET / PUT / DELETE | `/api/admin/reports/{id}` | admin |
+| POST | `/api/admin/reports/{id}/attachments` | admin — multipart `files[]` (+ `caption`, `captionAr`); images, videos, PDF/text/zip |
+| PATCH / DELETE | `/api/admin/attachments/{id}` | admin — edit captions / delete (also removes the file) |
+| GET | `/api/attachments/{id}/file` | signed link only (the report JSON hands them out); `?download=1` forces download |
 
 Login returns `{ "data": { "token", "expiresAt", "user" } }`; send the token as `Authorization: Bearer <token>`.
 Tokens last 12 hours and carry the `admin` ability.
+
+## Attachments (images, videos, files)
+
+Every report can carry attachments. They show up in the report JSON as `attachments: [{ id, kind, name, mime, size, caption, ar:{caption}, url, downloadUrl }]`
+(`kind` = `image | video | file`) and the React site displays them inside the page (gallery, video player, PDF/text viewer).
+
+- Allowed: `jpg jpeg png gif webp` · `mp4 m4v webm mov` · `pdf txt log md csv json har zip`. SVG/HTML/JS/PHP are refused on purpose. The file *content* is checked, not just the extension.
+- Files are stored on the **private** disk (`storage/app/private/report-attachments/<report-id>/`), never directly under `public/`.
+  They are served by `AttachmentController` through **short-lived signed links** (default 12 h), so files of a draft report cannot be opened by guessing a URL, and HTTP Range works (video seeking).
+- Limits: `REPORT_UPLOAD_MAX_MB` (default 100) in `.env` — **and** raise PHP's own caps, otherwise big uploads fail before Laravel sees them:
+  `upload_max_filesize = 128M`, `post_max_size = 130M` in `php.ini` (nginx: `client_max_body_size 130m;`). Optional: `REPORT_FILE_URL_TTL_HOURS`.
+- Deleting an attachment or a report deletes the stored files too.
+- If you already installed an earlier version, run `php artisan migrate` once to create the `report_attachments` table.
 
 ## Security notes
 
