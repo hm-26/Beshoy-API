@@ -24,7 +24,9 @@ class AuthController extends Controller
     /** POST /auth/gate  { secret } — opens the login for a short time (HttpOnly cookie). Wrong secret => plain 404. */
     public function openGate(Request $request): Response
     {
-        if (! LoginGate::secretMatches($request->input('secret'))) {
+        // Non-string input (e.g. secret[]=x) must behave exactly like a wrong secret, not crash with a 500.
+        $secret = $request->input('secret');
+        if (! is_string($secret) || ! LoginGate::secretMatches($secret)) {
             abort(404);
         }
 

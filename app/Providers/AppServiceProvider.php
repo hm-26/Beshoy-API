@@ -30,7 +30,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Login: 6 tries / minute per IP, and 30 tries / hour per e-mail+IP.
         RateLimiter::for('login', function (Request $request) {
-            $email = Str::lower((string) $request->input('email'));
+            $email = $request->input('email');
+            $email = is_string($email) ? Str::lower($email) : 'invalid'; // email[]=x would otherwise crash the limiter
 
             return [
                 Limit::perMinute(6)->by('ip:'.$request->ip()),
