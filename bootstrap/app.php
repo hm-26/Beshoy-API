@@ -17,8 +17,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Railway/Vercel sit in front of the app: trust their X-Forwarded-* headers (real client IP, https detection).
-        $middleware->trustProxies(at: '*');
+        // Railway/Vercel sit in front of the app: trust X-Forwarded-* ONLY when the request really comes from them.
+        // Trusting '*' would let any client forge X-Forwarded-For and dodge the per-IP login/gate rate limits.
+        // Default = private/internal ranges (where platform proxies connect from). Override with TRUSTED_PROXIES
+        // (comma separated IPs/CIDRs) if your host's proxy uses other addresses.
+        $middleware->trustProxies(at: array_values(array_filter(array_map('trim', explode(',', (string) env(
+            'TRUSTED_PROXIES',
+            '127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,fc00::/7'
+        ))))));
         $middleware->api(prepend: [CookieAuth::class]);
         $middleware->append(SecurityHeaders::class);
         $middleware->alias([
