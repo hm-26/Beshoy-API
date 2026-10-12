@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\VisitController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -19,7 +20,10 @@ Route::middleware('throttle:300,1')->group(function () {
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::get('/reports', [ReportController::class, 'index']);
     Route::get('/reports/{id}', [ReportController::class, 'show'])->whereNumber('id');
+    Route::get('/visits', [VisitController::class, 'show']);
 });
+// Counts this browser once (HttpOnly cookie) and returns the unique-visitor total.
+Route::post('/visits', [VisitController::class, 'hit'])->middleware('throttle:30,1');
 
 // Attachment bytes (images / videos / documents). The URL is a short-lived *signed* link that the report JSON
 // hands out, so files of draft reports stay private and <img>/<video> tags work without an Authorization header.
