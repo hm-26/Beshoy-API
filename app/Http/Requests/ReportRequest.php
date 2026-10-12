@@ -17,13 +17,13 @@ class ReportRequest extends FormRequest
     public function rules(): array
     {
         // POST = create (title/summary mandatory), PUT = partial update is allowed
-        $req = $this->isMethod('POST') ? 'required' : 'sometimes|required';
+        $req = $this->isMethod('POST') ? ['required'] : ['sometimes', 'required']; // array of rules: a 'a|b' string must not be mixed into an array
         $text = ['nullable', 'string', 'max:10000'];
         $short = ['nullable', 'string', 'max:255'];
 
         return [
-            'title' => [$req, 'string', 'max:255'],
-            'summary' => [$req, 'string', 'max:10000'],
+            'title' => [...$req, 'string', 'max:255'],
+            'summary' => [...$req, 'string', 'max:10000'],
             'severity' => ['nullable', Rule::in(self::SEVERITIES)],
             'platform' => ['nullable', 'string', 'max:60'],
             'programType' => ['nullable', 'string', 'max:60'],
