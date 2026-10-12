@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\CleansInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ReportRequest extends FormRequest
 {
+    use CleansInput;
+
     public const SEVERITIES = ['Low', 'Medium', 'High', 'Critical', 'Review'];
 
     public function authorize(): bool
@@ -85,6 +88,10 @@ class ReportRequest extends FormRequest
             if (array_key_exists($input, $data)) {
                 $out[$column] = $data[$input];
             }
+        }
+        // Safe by default: a new report stays a DRAFT unless the form explicitly publishes it.
+        if ($this->isMethod('POST') && ! array_key_exists('published', $out)) {
+            $out['published'] = false;
         }
         if (array_key_exists('severity', $out) && $out['severity'] === null) {
             $out['severity'] = 'Review';

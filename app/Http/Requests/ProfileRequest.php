@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\CleansInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ProfileRequest extends FormRequest
 {
+    use CleansInput;
+
     public function authorize(): bool
     {
         return true; // protected by auth:sanctum + admin middleware
