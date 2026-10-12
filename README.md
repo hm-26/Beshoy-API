@@ -48,6 +48,17 @@ and run `npm run dev`. Open `http://localhost:5173/login`.
 Login returns `{ "data": { "token", "expiresAt", "user" } }`; send the token as `Authorization: Bearer <token>`.
 Tokens last 12 hours and carry the `admin` ability.
 
+## Secret login link
+
+The admin login is hidden behind `https://your-site/0xGlitch?secret=<ADMIN_LOGIN_SECRET>`.
+
+1. Set `ADMIN_LOGIN_SECRET` in `.env` (e.g. `openssl rand -hex 24`). Optional: `ADMIN_LOGIN_GATE_MINUTES` (default 30).
+2. Opening the link sends the secret once to `POST /api/auth/gate`; the API answers with a signed HttpOnly, SameSite=Strict cookie
+   (`__Host-login_gate`) and the front-end removes the secret from the address bar.
+3. Only with that cookie does `POST /api/auth/login` work (404 otherwise). A successful sign-in or logout closes the gate again.
+
+If `ADMIN_LOGIN_SECRET` is empty the login is locked for everyone. Changing it invalidates every open gate. Treat the link like a password.
+
 ## Attachments (images, videos, files)
 
 Every report can carry attachments. They show up in the report JSON as `attachments: [{ id, kind, name, mime, size, caption, ar:{caption}, url, downloadUrl }]`

@@ -32,6 +32,9 @@ Route::get('/attachments/{attachment}/file', [AttachmentController::class, 'file
 */
 Route::prefix('auth')->group(function () {
     // rate limit defined in AppServiceProvider (per IP and per e-mail) — slows down password guessing
+    // secret login link: the secret is checked here, the answer is a short-lived HttpOnly cookie that /login requires
+    Route::post('/gate', [AuthController::class, 'openGate'])->middleware('throttle:10,1');
+    Route::get('/gate', [AuthController::class, 'gateStatus'])->middleware('throttle:60,1');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
     Route::middleware('auth:sanctum')->group(function () {

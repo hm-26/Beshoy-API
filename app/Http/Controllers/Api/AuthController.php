@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Middleware\CookieAuth;
 use App\Http\Requests\LoginRequest;
 use App\Models\User;
+use App\Support\LoginGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -18,8 +19,29 @@ class AuthController extends Controller
     private const TOKEN_HOURS = 12;          // normal session
     private const REMEMBER_HOURS = 24 * 7;   // "keep me signed in"
 
+    /** POST /auth/gate  { secret } — opens the login for a short time (HttpOnly cookie). Wrong secret => plain 404. */
+    public function openGate(Request $request): Response
+    {
+        if (! LoginGate::secretMatches($request->input('secret'))) {
+            abort(404);
+        }
+
+        return response()->noContent()->withCookie(LoginGate::open($request));
+    }
+
+    /** GET /auth/gate — 204 while the login cookie is valid, otherwise 404. */
+    public function gateStatus(Request $request): Response
+    {
+        abort_unless(LoginGate::isOpen($request), 404);
+
+        return response()->noContent();
+    }
+
     public function login(LoginRequest $request): JsonResponse
     {
+        // Without the secret-link cookie the login endpoint pretends not to exist.
+        abort_unless(LoginGate::isOpen($request), 404);
+
         $user = User::where('email', $request->validated('email'))->first();
 
         // One generic message for "no such user", "not an admin" and "wrong password".
@@ -42,7 +64,8 @@ class AuthController extends Controller
                 'expiresAt' => $expires->toIso8601String(),
                 'user' => $this->payload($user),
             ]])
-            ->withCookie($this->cookie($request, $token->plainTextToken, $remember ? $expires : 0));
+            ->withCookie($this->cookie($request, $token->plainTextToken, $remember ? $expires : 0))
+            ->withCookie(LoginGate::close($request)); // the gate is single-use: next sign-in needs the link again
     }
 
     public function me(Request $request): JsonResponse
@@ -54,7 +77,9 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->noContent()->withCookie($this->cookie($request, '', now()->subDay()));
+        return response()->noContent()
+            ->withCookie($this->cookie($request, '', now()->subDay()))
+            ->withCookie(LoginGate::close($request));
     }
 
     private function cookie(Request $request, string $value, $expires): Cookie

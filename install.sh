@@ -25,6 +25,11 @@ if ! grep -q "^ADMIN_PASSWORD=" .env; then
   echo "ADMIN_PASSWORD=$GENERATED" >> .env
 fi
 add_env CORS_ALLOWED_ORIGINS "http://localhost:5173"
+GATE_SECRET=""
+if ! grep -q "^ADMIN_LOGIN_SECRET=" .env; then
+  GATE_SECRET="$(openssl rand -hex 24)"
+  echo "ADMIN_LOGIN_SECRET=$GATE_SECRET" >> .env
+fi
 add_env REPORT_UPLOAD_MAX_MB "100"
 
 php artisan migrate --seed --force
@@ -33,4 +38,5 @@ echo
 echo "Done. Start the API:   cd $TARGET && php artisan serve      (http://localhost:8000)"
 echo "Admin login:           $(grep '^ADMIN_EMAIL=' .env | cut -d= -f2)"
 [ -n "$GENERATED" ] && echo "Admin password:        $GENERATED   (also stored in .env — change it!)"
+[ -n "$GATE_SECRET" ] && echo "Secret login link:     http://localhost:5173/0xGlitch?secret=$GATE_SECRET"
 echo "Frontend .env:         VITE_API_PROXY=http://localhost:8000   VITE_API_FALLBACK=false"
