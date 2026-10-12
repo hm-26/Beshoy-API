@@ -1,0 +1,22 @@
+{
+  "name": "Beshoy Wadid",
+  "role": "Security Researcher",
+  "bio": "I conduct thorough security assessments and research to identify and mitigate potential vulnerabilities in web applications and systems.",
+  "location": "Beni Suef, Egypt",
+  "skills": [
+    "Penetration Testing",
+    "Vulnerability Analysis",
+    "Security Auditing"
+  ],
+  "ar": {
+    "name": "بيشوي وديد",
+    "role": "باحث أمن معلومات",
+    "bio": "أُجري تقييمات وأبحاثًا أمنية شاملة لاكتشاف الثغرات المحتملة في تطبيقات الويب والأنظمة والحد منها.",
+    "location": "بني سويف، مصر",
+    "skills": [
+      "اختبار الاختراق",
+      "تحليل الثغرات",
+      "التدقيق الأمني"
+    ]
+  }
+}
