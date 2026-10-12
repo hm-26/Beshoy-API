@@ -103,7 +103,10 @@ class AdminAttachmentController extends Controller
             $kind === 'video' => str_starts_with($detected, 'video/') || $detected === 'application/mp4',
             $ext === 'pdf' => $detected === 'application/pdf',
             $ext === 'zip' => in_array($detected, ['application/zip', 'application/x-zip-compressed'], true),
-            default => str_starts_with($detected, 'text/') || in_array($detected, ['application/json', 'application/csv', 'application/x-ndjson', 'inode/x-empty'], true),
+            in_array($ext, ReportAttachment::ZIP_LIKE, true) => in_array($detected, ['application/zip', 'application/x-zip-compressed', 'application/octet-stream', 'application/java-archive', 'application/epub+zip', 'application/vnd.android.package-archive'], true)
+                || str_starts_with($detected, 'application/vnd.'),
+            in_array($ext, ['mp3', 'wav', 'ogg', 'm4a'], true) => str_starts_with($detected, 'audio/') || $detected === 'application/ogg' || $detected === 'video/ogg' || $detected === 'video/mp4',
+            default => str_starts_with($detected, 'text/') || in_array($detected, ['application/json', 'application/csv', 'application/x-ndjson', 'inode/x-empty', 'application/javascript', 'application/x-javascript', 'application/xml', 'application/x-httpd-php', 'application/x-sh', 'application/x-shellscript', 'application/sql', 'application/x-yaml', 'application/x-empty'], true),
         };
         if (! $ok) {
             $fail("The content of \"{$file->getClientOriginalName()}\" does not look like a .$ext file.");
