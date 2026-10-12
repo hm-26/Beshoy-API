@@ -52,10 +52,11 @@ Tokens last 12 hours and carry the `admin` ability.
 
 The admin login is hidden behind `https://your-site/0xGlitch?secret=<ADMIN_LOGIN_SECRET>`.
 
-1. Set `ADMIN_LOGIN_SECRET` in `.env` (e.g. `openssl rand -hex 24`). Optional: `ADMIN_LOGIN_GATE_MINUTES` (default 30).
+1. Set `ADMIN_LOGIN_SECRET` in `.env` (e.g. `openssl rand -hex 24`). The secret must be **at least 32 characters** (shorter => login locked). Optional: `ADMIN_LOGIN_GATE_MINUTES` (default 10).
 2. Opening the link sends the secret once to `POST /api/auth/gate`; the API answers with a signed HttpOnly, SameSite=Strict cookie
-   (`__Host-login_gate`) and the front-end removes the secret from the address bar.
-3. Only with that cookie does `POST /api/auth/login` work (404 otherwise). A successful sign-in or logout closes the gate again.
+   (`__Host-login_gate`, 10 min, bound to the browser's User-Agent) and the front-end removes the secret from the address bar.
+   Prefer the **fragment form** `/0xGlitch#secret=<token>`: a `#fragment` is never sent to any server, so it can't end up in Vercel/Railway access logs (`?secret=` still works).
+3. Only with that cookie does `POST /api/auth/login` work (404 otherwise). A successful sign-in or logout closes the gate again, and so do 5 wrong passwords.
 
 If `ADMIN_LOGIN_SECRET` is empty the login is locked for everyone. Changing it invalidates every open gate. Treat the link like a password.
 

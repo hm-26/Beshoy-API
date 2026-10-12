@@ -114,8 +114,8 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
-    // Secret login link: /0xGlitch?secret=<ADMIN_LOGIN_SECRET>. Empty => admin login is locked for everyone.
+    // Secret login link: /0xGlitch?secret=<ADMIN_LOGIN_SECRET>. Must be >= 32 chars, otherwise the admin login is locked for everyone.
     'login_secret' => env('ADMIN_LOGIN_SECRET', ''),
-    'login_gate_minutes' => env('ADMIN_LOGIN_GATE_MINUTES', 30),
+    'login_gate_minutes' => env('ADMIN_LOGIN_GATE_MINUTES', 10),
 
 ];

@@ -10,6 +10,7 @@ use App\Support\LoginGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -42,10 +43,19 @@ class AuthController extends Controller
         // Without the secret-link cookie the login endpoint pretends not to exist.
         abort_unless(LoginGate::isOpen($request), 404);
 
+        // After 5 wrong passwords the opened gate is burned: the secret link is needed again.
+        $failKey = 'login-gate-fail:'.LoginGate::fingerprint($request);
+        if ((int) Cache::get($failKey, 0) >= LoginGate::MAX_LOGIN_FAILURES) {
+            return response()->json(['message' => 'Not Found.'], 404)->withCookie(LoginGate::close($request));
+        }
+
         $user = User::where('email', $request->validated('email'))->first();
 
         // One generic message for "no such user", "not an admin" and "wrong password".
         if (! $user || ! $user->is_admin || ! Hash::check($request->validated('password'), $user->password)) {
+            Cache::add($failKey, 0, now()->addMinutes(LoginGate::minutes() + 1));
+            Cache::increment($failKey);
+
             throw ValidationException::withMessages([
                 'email' => ['These credentials do not match our records.'],
             ]);

@@ -17,14 +17,20 @@ class LoginGate
     public const PLAIN = 'login_gate';
     public const SECURE = '__Host-login_gate';
 
+    public const MIN_SECRET_LENGTH = 32;
+    public const MAX_LOGIN_FAILURES = 5;   // wrong passwords allowed per opened gate
+
+    /** A secret shorter than 32 chars is treated as "not configured" => login stays locked (guessing protection). */
     public static function secret(): string
     {
-        return (string) config('auth.login_secret', '');
+        $secret = (string) config('auth.login_secret', '');
+
+        return strlen($secret) >= self::MIN_SECRET_LENGTH ? $secret : '';
     }
 
     public static function minutes(): int
     {
-        return max(1, (int) config('auth.login_gate_minutes', 30));
+        return max(1, min(60, (int) config('auth.login_gate_minutes', 10)));
     }
 
     /** Constant-time comparison. An empty configured secret locks the login for everybody. */
@@ -32,7 +38,12 @@ class LoginGate
     {
         $secret = self::secret();
 
-        return $secret !== '' && is_string($given) && $given !== '' && hash_equals($secret, $given);
+        if ($secret === '' || ! is_string($given) || $given === '') {
+            return false;
+        }
+
+        // Hash both sides first so the comparison time never depends on the length of the guess.
+        return hash_equals(hash('sha256', $secret), hash('sha256', $given));
     }
 
     public static function cookieName(Request $request): string
@@ -40,10 +51,21 @@ class LoginGate
         return $request->isSecure() ? self::SECURE : self::PLAIN;
     }
 
-    private static function sign(string $payload): string
+    private static function sign(string $payload, Request $request): string
     {
-        // Keyed with APP_KEY *and* the secret, so changing the secret invalidates every open gate.
-        return hash_hmac('sha256', $payload, (string) config('app.key').'|'.self::secret());
+        // Keyed with APP_KEY *and* the secret (changing the secret invalidates every open gate) and bound to the
+        // browser's User-Agent, so a copied cookie is useless in another client.
+        $key = (string) config('app.key').'|'.self::secret().'|'.hash('sha256', (string) $request->userAgent());
+
+        return hash_hmac('sha256', $payload, $key);
+    }
+
+    /** Stable id of the currently opened gate (used to count failed sign-ins per gate). */
+    public static function fingerprint(Request $request): ?string
+    {
+        $value = $request->cookie(self::SECURE) ?: $request->cookie(self::PLAIN);
+
+        return is_string($value) && $value !== '' ? hash('sha256', $value) : null;
     }
 
     public static function isOpen(Request $request): bool
@@ -61,14 +83,14 @@ class LoginGate
 
         return ctype_digit($expires)
             && (int) $expires > time()
-            && hash_equals(self::sign($expires), $signature);
+            && hash_equals(self::sign($expires, $request), $signature);
     }
 
     public static function open(Request $request): Cookie
     {
         $expires = time() + self::minutes() * 60;
 
-        return self::make($request, $expires.'.'.self::sign((string) $expires), $expires);
+        return self::make($request, $expires.'.'.self::sign((string) $expires, $request), $expires);
     }
 
     public static function close(Request $request): Cookie
