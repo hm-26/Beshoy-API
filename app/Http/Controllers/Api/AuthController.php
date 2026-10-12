@@ -42,7 +42,7 @@ class AuthController extends Controller
                 'expiresAt' => $expires->toIso8601String(),
                 'user' => $this->payload($user),
             ]])
-            ->withCookie($this->cookie($request, $token->plainTextToken, $remember ? $expires : null));
+            ->withCookie($this->cookie($request, $token->plainTextToken, $remember ? $expires : 0));
     }
 
     public function me(Request $request): JsonResponse
@@ -62,7 +62,7 @@ class AuthController extends Controller
         return new Cookie(
             CookieAuth::cookieName($request),
             $value,
-            $expires,      // null => session cookie (gone when the browser closes)
+            $expires,      // 0 => session cookie (gone when the browser closes)
             '/',
             null,          // host-only: required by the __Host- prefix
             $request->isSecure(),
