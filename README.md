@@ -106,3 +106,8 @@ Frontend on Vercel + API on any PHP host: set the frontend variables `VITE_API_U
 - **Contact messages** (name, e-mail, phone, subject, message) are stored encrypted (`app/Casts/SafeEncrypted.php`).
 - The migration `2026_10_14_000000_encrypt_contact_messages_and_files` converts existing data; `php artisan data:encrypt` does the same and is safe to re-run.
 - **Back up `APP_KEY`.** Without it the encrypted data cannot be read. When rotating the key, move the old one into `APP_PREVIOUS_KEYS` (comma separated) before changing `APP_KEY`.
+
+## Database
+
+The project uses **MySQL** only (`DB_CONNECTION=mysql`, plus `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` in `.env`).
+To run the tests, create an empty database called `portfolio_test` (or change `DB_DATABASE` in `phpunit.xml`): the tests wipe it.
