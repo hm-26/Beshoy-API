@@ -1,0 +1,4 @@
+Run once in the API repo, then commit (files stay on your disk, they just leave git):
+
+git rm -r --cached storage/logs storage/framework/views bootstrap/cache database/database.sqlite
+git commit -m "Stop tracking logs, compiled views, cache and sqlite file"

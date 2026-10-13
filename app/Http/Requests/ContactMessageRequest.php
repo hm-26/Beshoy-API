@@ -19,7 +19,13 @@ class ContactMessageRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'min:2', 'max:120'],
-            'email' => ['required', 'email:rfc', 'max:190'],
+            // RFC-valid addresses may contain quoted parts with ? & = ; the admin panel builds a mailto: link from this
+            // value, so those characters could smuggle extra mail headers (bcc / body). Reject them outright.
+            'email' => ['required', 'email:rfc', 'max:190', function (string $attribute, mixed $value, \Closure $fail) {
+                if (preg_match('/[\s"\'?&=#%<>,;\\\\]/', (string) $value)) {
+                    $fail('The email address contains characters that are not allowed.');
+                }
+            }],
             'phone' => ['nullable', 'string', 'regex:/^\+?[0-9()\-\s]{5,30}$/'],
             'subject' => ['nullable', 'string', 'max:160'],
             'message' => ['required', 'string', 'min:5', 'max:3000'],

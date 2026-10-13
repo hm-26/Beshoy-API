@@ -44,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
             return [
                 Limit::perMinute(3)->by('contact-ip:'.$request->ip()),
                 Limit::perHour(10)->by('contact-ip-h:'.$request->ip()),
+                // Not tied to the IP: X-Forwarded-For can be forged when someone talks to the Railway URL directly.
+                Limit::perHour(40)->by('contact-global'),
             ];
         });
 
