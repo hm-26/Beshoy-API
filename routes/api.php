@@ -27,10 +27,10 @@ Route::middleware('throttle:300,1')->group(function () {
     Route::get('/profile/avatar', [AvatarController::class, 'show']);
     Route::get('/reports', [ReportController::class, 'index'])->middleware('seal:required');
     Route::get('/reports/{id}', [ReportController::class, 'show'])->whereNumber('id')->middleware('seal:required');
-    Route::get('/visits', [VisitController::class, 'show']);
+    Route::get('/visits', [VisitController::class, 'show'])->middleware('seal');
 });
 // Counts this browser once (HttpOnly cookie) and returns the unique-visitor total.
-Route::post('/visits', [VisitController::class, 'hit'])->middleware('throttle:30,1');
+Route::post('/visits', [VisitController::class, 'hit'])->middleware(['seal', 'throttle:30,1']);
 
 // Contact form ("send through the website"). Strict per-IP limits, see the 'contact' limiter in AppServiceProvider.
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact');
@@ -54,10 +54,11 @@ Route::prefix('auth')->group(function () {
     Route::get('/gate', [AuthController::class, 'gateStatus'])->middleware('throttle:60,1');
     // one-time key for encrypting the login body (see App\Support\SealedPayload)
     Route::get('/challenge', [AuthController::class, 'challenge'])->middleware(['login.gate', 'throttle:60,1']);
-    Route::post('/login', [AuthController::class, 'login'])->middleware(['login.gate', 'sealed', 'throttle:login']);
+    // the answer (user id / name / e-mail / isAdmin / expiry) is sealed too: after `login.gate` so the endpoint stays invisible (404) without the gate
+    Route::post('/login', [AuthController::class, 'login'])->middleware(['login.gate', 'seal:required', 'sealed', 'throttle:login']);
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/me', [AuthController::class, 'me']);
+        Route::get('/me', [AuthController::class, 'me'])->middleware('seal:required');
         Route::post('/logout', [AuthController::class, 'logout']);
     });
 });
