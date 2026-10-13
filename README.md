@@ -98,3 +98,11 @@ Every report can carry attachments. They show up in the report JSON as `attachme
 
 Frontend on Vercel + API on any PHP host: set the frontend variables `VITE_API_URL=https://api.your-domain.com/api` and `VITE_API_FALLBACK=false`.
 (The Node functions in the React project's `api/` folder are read-only sample data and have no login — use this Laravel API for the admin panel.)
+
+
+## Encryption at rest
+
+- **Uploaded files** are stored encrypted (AES-256-GCM, one key per file derived from `APP_KEY`, see `app/Support/FileVault.php`) and decrypted on the fly when a signed link is opened. Turn off with `REPORT_ENCRYPT_FILES=false`.
+- **Contact messages** (name, e-mail, phone, subject, message) are stored encrypted (`app/Casts/SafeEncrypted.php`).
+- The migration `2026_10_14_000000_encrypt_contact_messages_and_files` converts existing data; `php artisan data:encrypt` does the same and is safe to re-run.
+- **Back up `APP_KEY`.** Without it the encrypted data cannot be read. When rotating the key, move the old one into `APP_PREVIOUS_KEYS` (comma separated) before changing `APP_KEY`.

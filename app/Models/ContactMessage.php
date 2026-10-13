@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\SafeEncrypted;
 use Illuminate\Database\Eloquent\Model;
 
 class ContactMessage extends Model
@@ -10,6 +11,14 @@ class ContactMessage extends Model
 
     protected function casts(): array
     {
-        return ['read_at' => 'datetime'];
+        // Everything a visitor typed is personal data: stored encrypted, decrypted only when the admin opens the inbox.
+        return [
+            'name' => SafeEncrypted::class,
+            'email' => SafeEncrypted::class,
+            'phone' => SafeEncrypted::class,
+            'subject' => SafeEncrypted::class,
+            'message' => SafeEncrypted::class,
+            'read_at' => 'datetime',
+        ];
     }
 }

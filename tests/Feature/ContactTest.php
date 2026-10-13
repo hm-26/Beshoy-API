@@ -36,7 +36,13 @@ class ContactTest extends TestCase
     {
         $this->postJson('/api/contact', $this->payload())->assertCreated();
 
-        $this->assertDatabaseHas('contact_messages', ['email' => 'visitor@example.com', 'read_at' => null]);
+        // What the visitor typed is stored encrypted: the raw column never holds the plain text...
+        $raw = \Illuminate\Support\Facades\DB::table('contact_messages')->first();
+        $this->assertNotSame('visitor@example.com', $raw->email);
+        $this->assertStringNotContainsString('visitor@example.com', json_encode($raw));
+        // ...while the model hands it back decrypted.
+        $this->assertSame('visitor@example.com', ContactMessage::first()->email);
+        $this->assertNull($raw->read_at);
     }
 
     public function test_message_is_validated(): void

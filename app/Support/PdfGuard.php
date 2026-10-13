@@ -36,6 +36,11 @@ final class PdfGuard
 
     private const MAX_TOTAL = 128 * 1024 * 1024;
 
+    /** Every "stream" keyword is examined on its own (see inspect()); these keep that bounded on hostile files. */
+    private const MAX_STREAM_KEYWORDS = 20000;
+
+    private const MAX_RAW_EXAMINED = 256 * 1024 * 1024;
+
     private const DELIM = '\s()<>\[\]{}\/%';
 
     /** Returns null when the PDF looks clean, otherwise a short human-readable reason. */
@@ -61,7 +66,27 @@ final class PdfGuard
     {
         $key = 'pdfguard:'.$id.':'.@filesize($path).':'.@filemtime($path);
 
-        return (bool) Cache::remember($key, now()->addDay(), fn () => self::problem($path) === null);
+        return (bool) Cache::remember($key, now()->addDay(), function () use ($path) {
+            if (! FileVault::isEncrypted($path)) {
+                return self::problem($path) === null;
+            }
+
+            // Stored encrypted: scan a short-lived decrypted copy. A file that cannot be decrypted is never "safe".
+            $size = FileVault::plainSize($path);
+            if ($size === null || $size > self::MAX_BYTES) {
+                return false;
+            }
+            $tmp = (string) tempnam(sys_get_temp_dir(), 'pdfscan');
+            try {
+                FileVault::decryptTo($path, $tmp);
+
+                return self::problem($tmp) === null;
+            } catch (\Throwable) {
+                return false;
+            } finally {
+                @unlink($tmp);
+            }
+        });
     }
 
     public static function inspect(string $raw): ?string
@@ -71,11 +96,27 @@ final class PdfGuard
         }
 
         $total = 0;
+        $examined = 0;
+        $keywords = 0;
         $offset = 0;
         while (($s = strpos($raw, 'stream', $offset)) !== false) {
+            // Always continue right after THIS keyword, never after the end of the stream it seems to open. A crafted
+            // file can plant the word "stream" inside a string or comment, with an image-filter dictionary in front of
+            // it, so that a scanner which jumps to the next "endstream" swallows (and never inspects) the real object
+            // stream that follows. Looking at every occurrence on its own closes that gap.
             $offset = $s + 6;
             if ($s >= 3 && substr($raw, $s - 3, 3) === 'end') {
                 continue; // that was "endstream"
+            }
+            // A real stream keyword always follows the end of a dictionary (">>") with only whitespace/comments between.
+            // The same letters inside a title, string or name are plain text and are skipped (otherwise a harmless PDF
+            // titled "Live stream report" would be refused).
+            $before = substr($raw, max(0, $s - 512), min(512, $s));
+            if (! preg_match('~>>(?:[\s\x00]|%[^\r\n]*)*$~', $before)) {
+                continue;
+            }
+            if (++$keywords > self::MAX_STREAM_KEYWORDS) {
+                return 'the PDF is too complex to be checked safely';
             }
             $start = $s + 6;
             if (($raw[$start] ?? '') === "\r") {
@@ -108,7 +149,10 @@ final class PdfGuard
             if ($end === false) {
                 return 'a stream is not terminated';
             }
-            $offset = $end + 9;
+            $examined += $end - $start;
+            if ($examined > self::MAX_RAW_EXAMINED) {
+                return 'the PDF is too complex to be checked safely';
+            }
 
             $filters = self::filtersOf($dict);
             $isObjStm = (bool) preg_match('~/ObjStm(?=['.self::DELIM.']|$)~', $dict);

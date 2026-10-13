@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AttachmentResource;
 use App\Models\Report;
 use App\Models\ReportAttachment;
+use App\Support\FileVault;
 use App\Support\PdfGuard;
 use App\Support\ZipGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -42,7 +44,7 @@ class AdminAttachmentController extends Controller
         $created = [];
         foreach ($checked as [$file, [$ext, $kind, $mime]]) {
             $created[] = $report->attachments()->create([
-                'path' => $file->storeAs("report-attachments/{$report->id}", Str::uuid().'.'.$ext, ReportAttachment::DISK),
+                'path' => $this->storeFile($file, "report-attachments/{$report->id}", Str::uuid().'.'.$ext),
                 'original_name' => Str::limit($this->cleanName($file->getClientOriginalName()), 200, ''),
                 'extension' => $ext,
                 'mime' => $mime,
@@ -55,6 +57,20 @@ class AdminAttachmentController extends Controller
         }
 
         return AttachmentResource::collection(collect($created))->response()->setStatusCode(201);
+    }
+
+    /** Stores one upload on the private disk, encrypted at rest unless REPORT_ENCRYPT_FILES=false. Returns its path. */
+    private function storeFile(UploadedFile $file, string $dir, string $name): string
+    {
+        if (! config('uploads.encrypt')) {
+            return (string) $file->storeAs($dir, $name, ReportAttachment::DISK);
+        }
+
+        $disk = Storage::disk(ReportAttachment::DISK);
+        $disk->makeDirectory($dir);
+        FileVault::encrypt((string) $file->getRealPath(), $disk->path("{$dir}/{$name}"));
+
+        return "{$dir}/{$name}";
     }
 
     /** PATCH /admin/attachments/{attachment} — captions only. */
