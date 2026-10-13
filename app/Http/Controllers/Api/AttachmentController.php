@@ -38,7 +38,8 @@ class AttachmentController extends Controller
         $response = response()->file($disk->path($attachment->path), [
             'Content-Type' => $type,
             'X-Content-Type-Options' => 'nosniff',
-            'Cache-Control' => 'private, max-age=3600',
+            // PDFs are never cached: a copy stored by the browser before a file was found unsafe would keep opening inline.
+            'Cache-Control' => $attachment->extension === 'pdf' ? 'private, no-store' : 'private, max-age=3600',
             // Nothing we serve needs to run scripts. (Clean PDFs are left alone: the browser's viewer needs more room.)
             ...($attachment->extension === 'pdf' && ! $unsafePdf ? [] : ['Content-Security-Policy' => "default-src 'none'; sandbox"]),
         ]);
