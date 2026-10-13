@@ -27,13 +27,16 @@ class AttachmentController extends Controller
             $type .= '; charset=utf-8';
         }
 
-        // A PDF that carries active content (e.g. uploaded before the upload check existed) is never sent at all:
-        // not inline, not as a download. The site shows a warning instead (the attachment JSON says `unsafe: true`).
-        abort_if(
-            $attachment->extension === 'pdf' && ! PdfGuard::isSafeStored($disk->path($attachment->path), $attachment->id),
-            403,
-            'This PDF contains active content and was blocked.'
-        );
+        // A PDF that carries active content (e.g. uploaded before the upload check existed) is never shown in the
+        // browser. A visitor who insists can still save it to their own device (`download=1`, a signed parameter that
+        // cannot be added by hand): it is then sent as an opaque binary attachment, under a ".unsafe" file name so that
+        // a double-click does not open it in a PDF reader. The site shows two warnings before it offers that link.
+        $unsafePdf = $attachment->extension === 'pdf'
+            && ! PdfGuard::isSafeStored($disk->path($attachment->path), $attachment->id);
+        abort_if($unsafePdf && ! $request->boolean('download'), 403, 'This PDF contains active content and was blocked.');
+        if ($unsafePdf) {
+            $type = 'application/octet-stream';
+        }
 
         $response = response()->file($disk->path($attachment->path), [
             'Content-Type' => $type,
@@ -41,13 +44,14 @@ class AttachmentController extends Controller
             // PDFs are never cached: a copy stored by the browser before a file was found unsafe would keep opening inline.
             'Cache-Control' => $attachment->extension === 'pdf' ? 'private, no-store' : 'private, max-age=3600',
             // Nothing we serve needs to run scripts. (Clean PDFs are left alone: the browser's viewer needs more room.)
-            ...($attachment->extension === 'pdf' ? [] : ['Content-Security-Policy' => "default-src 'none'; sandbox"]),
+            ...($attachment->extension === 'pdf' && ! $unsafePdf ? [] : ['Content-Security-Policy' => "default-src 'none'; sandbox"]),
         ]);
 
-        $fallback = str_replace(['%', '/', '\\'], '_', Str::ascii($attachment->original_name)) ?: 'file';
+        $name = $attachment->original_name.($unsafePdf ? '.unsafe' : '');
+        $fallback = str_replace(['%', '/', '\\'], '_', Str::ascii($name)) ?: 'file';
         $response->setContentDisposition(
             $request->boolean('download') ? ResponseHeaderBag::DISPOSITION_ATTACHMENT : ResponseHeaderBag::DISPOSITION_INLINE,
-            $attachment->original_name,
+            $name,
             $fallback,
         );
 
