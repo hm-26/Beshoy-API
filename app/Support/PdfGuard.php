@@ -84,16 +84,31 @@ final class PdfGuard
             if (($raw[$start] ?? '') === "\n") {
                 $start++;
             }
-            $end = strpos($raw, 'endstream', $start);
-            if ($end === false) {
-                return 'a stream is not terminated';
-            }
-            $offset = $end + 9;
 
             // The dictionary sits in the ~2 KB before the keyword, after the last "obj".
             $head = substr($raw, max(0, $s - 2048), min(2048, $s));
             $objAt = strrpos($head, 'obj');
             $dict = self::normaliseNames($objAt === false ? $head : substr($head, $objAt));
+
+            // Prefer the dictionary's own /Length when it is a plain integer: a crafted stream can contain the
+            // literal bytes "endstream" to desync a naive scan like this one and hide what comes after it, so
+            // trusting a bare keyword search alone is not enough. Only used when it lands exactly on "endstream"
+            // (give or take whitespace); otherwise fall back to searching, which is still fail-closed below.
+            $end = false;
+            if (preg_match('~/Length\s+(\d+)(?!\s+\d+\s+R\b)~', $dict, $lm)) {
+                $declaredEnd = $start + (int) $lm[1];
+                $tail = substr($raw, $declaredEnd, 20);
+                if (preg_match('~^[\r\n\s]*endstream~', $tail)) {
+                    $end = $declaredEnd;
+                }
+            }
+            if ($end === false) {
+                $end = strpos($raw, 'endstream', $start);
+            }
+            if ($end === false) {
+                return 'a stream is not terminated';
+            }
+            $offset = $end + 9;
 
             $filters = self::filtersOf($dict);
             $isObjStm = (bool) preg_match('~/ObjStm(?=['.self::DELIM.']|$)~', $dict);

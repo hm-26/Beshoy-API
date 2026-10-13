@@ -7,6 +7,7 @@ use App\Http\Resources\AttachmentResource;
 use App\Models\Report;
 use App\Models\ReportAttachment;
 use App\Support\PdfGuard;
+use App\Support\ZipGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -116,6 +117,12 @@ class AdminAttachmentController extends Controller
         // PDFs are shown inline from the site's own origin, so one that can run JavaScript / auto-actions is refused.
         if ($ext === 'pdf' && ($why = PdfGuard::problem((string) $file->getRealPath()))) {
             $fail("\"{$file->getClientOriginalName()}\" was rejected: {$why}. Remove JavaScript/actions from the PDF (or print it to a fresh PDF) and upload again.");
+        }
+
+        // ZIP-based files (zip itself, and Office/ODF containers): guard against zip bombs, and against macros /
+        // remote-template links in Office documents, which run with the admin's privileges once opened.
+        if (($ext === 'zip' || in_array($ext, ReportAttachment::ZIP_LIKE, true)) && ($why = ZipGuard::problem((string) $file->getRealPath(), $ext))) {
+            $fail("\"{$file->getClientOriginalName()}\" was rejected: {$why}.");
         }
 
         return [$ext, $kind, $mime];
