@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\AdminSessions;
 use App\Support\LoginGate;
 use App\Support\SealedPayload;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -57,7 +58,28 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        // (The `login.gate` middleware already answered 404 for requests without an open gate.)
+        // Logins run strictly one at a time. Without this lock, N requests held back in an intercepting proxy (Burp
+        // "intercept", Turbo Intruder, a script firing in parallel) and released together all pass the checks below
+        // BEFORE any of them has written its token or bumped the failure counter. That would (a) sign in more devices
+        // than the admin allowed, (b) reuse one opened gate N times, (c) allow more password guesses than the per-gate cap.
+        $lock = Cache::lock('admin-login', 20);
+        try {
+            $lock->block(8);
+        } catch (LockTimeoutException) {
+            return response()->json(['message' => 'Too many attempts. Try again later.'], 429);
+        }
+
+        try {
+            return $this->attemptLogin($request);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function attemptLogin(LoginRequest $request): JsonResponse
+    {
+        // Checked again INSIDE the lock: the first login closes the gate (single use), so every request that was queued
+        // behind it with the same cookie now finds the gate gone and gets the same plain 404.
         abort_unless(LoginGate::isOpen($request), 404);
 
         // Total wrong passwords per hour across all gates. Only someone who already has the secret link can reach
