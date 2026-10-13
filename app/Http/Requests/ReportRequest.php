@@ -10,7 +10,7 @@ class ReportRequest extends FormRequest
 {
     use CleansInput;
 
-    public const SEVERITIES = ['Low', 'Medium', 'High', 'Critical', 'Review'];
+    public const SEVERITIES = ['Low', 'Medium', 'High', 'Critical', 'Informational', 'Duplicate', 'Review'];
 
     public function authorize(): bool
     {
