@@ -27,13 +27,13 @@ class AttachmentController extends Controller
             $type .= '; charset=utf-8';
         }
 
-        // A PDF that carries active content (e.g. uploaded before the upload check existed) is never rendered by the
-        // browser: it is forced to a download as an opaque binary, so its scripts cannot run on this origin.
-        $unsafePdf = $attachment->extension === 'pdf'
-            && ! PdfGuard::isSafeStored($disk->path($attachment->path), $attachment->id);
-        if ($unsafePdf) {
-            $type = 'application/octet-stream';
-        }
+        // A PDF that carries active content (e.g. uploaded before the upload check existed) is never sent at all:
+        // not inline, not as a download. The site shows a warning instead (the attachment JSON says `unsafe: true`).
+        abort_if(
+            $attachment->extension === 'pdf' && ! PdfGuard::isSafeStored($disk->path($attachment->path), $attachment->id),
+            403,
+            'This PDF contains active content and was blocked.'
+        );
 
         $response = response()->file($disk->path($attachment->path), [
             'Content-Type' => $type,
@@ -41,12 +41,12 @@ class AttachmentController extends Controller
             // PDFs are never cached: a copy stored by the browser before a file was found unsafe would keep opening inline.
             'Cache-Control' => $attachment->extension === 'pdf' ? 'private, no-store' : 'private, max-age=3600',
             // Nothing we serve needs to run scripts. (Clean PDFs are left alone: the browser's viewer needs more room.)
-            ...($attachment->extension === 'pdf' && ! $unsafePdf ? [] : ['Content-Security-Policy' => "default-src 'none'; sandbox"]),
+            ...($attachment->extension === 'pdf' ? [] : ['Content-Security-Policy' => "default-src 'none'; sandbox"]),
         ]);
 
         $fallback = str_replace(['%', '/', '\\'], '_', Str::ascii($attachment->original_name)) ?: 'file';
         $response->setContentDisposition(
-            ($request->boolean('download') || $unsafePdf) ? ResponseHeaderBag::DISPOSITION_ATTACHMENT : ResponseHeaderBag::DISPOSITION_INLINE,
+            $request->boolean('download') ? ResponseHeaderBag::DISPOSITION_ATTACHMENT : ResponseHeaderBag::DISPOSITION_INLINE,
             $attachment->original_name,
             $fallback,
         );

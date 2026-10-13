@@ -4,6 +4,9 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Models\ReportAttachment;
+use App\Support\PdfGuard;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
 class AttachmentResource extends JsonResource
@@ -30,6 +33,10 @@ class AttachmentResource extends JsonResource
             'ar' => ['caption' => $a->caption_ar],
             'url' => $link(),                       // inline (view in the site)
             'downloadUrl' => $link(['download' => 1]),
+            // true = a PDF with active content (JavaScript / auto-actions): the API refuses to serve it and the site
+            // shows a warning instead. The verdict is cached per file, so this is cheap after the first request.
+            'unsafe' => $a->extension === 'pdf'
+                && ! PdfGuard::isSafeStored(Storage::disk(ReportAttachment::DISK)->path($a->path), $a->id),
         ];
     }
 }
