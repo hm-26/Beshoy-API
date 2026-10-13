@@ -14,11 +14,22 @@ class AvatarController extends Controller
     private const MAX_KB = 3072;       // the browser already shrinks the picture; this is only a safety net
     private const MAX_PIXELS = 4000;   // per side (guards against decompression bombs)
 
-    /** GET /profile/avatar — public. The URL carries ?v=<version>, so the answer can be cached for a long time. */
-    public function show(): Response
+    /**
+     * GET /profile/avatar — public.
+     *  - with ?v=<version> (what the app uses) the answer never changes, so it is cached for a long time;
+     *  - without it (favicon, link previews / og:image) the URL is stable, so it is cached only briefly and always
+     *    shows the CURRENT picture; with no picture uploaded it redirects to the site's default logo.
+     */
+    public function show(Request $request): Response
     {
+        $versioned = $request->query('v') !== null;
         $avatar = ProfileAvatar::query()->first();
-        abort_unless($avatar, 404);
+
+        if (! $avatar) {
+            abort_if($versioned, 404);
+
+            return response('', 302, ['Location' => '/images/logo.png', 'Cache-Control' => 'public, max-age=300']);
+        }
 
         $bytes = base64_decode($avatar->data, true);
         abort_if($bytes === false, 404);
@@ -26,7 +37,8 @@ class AvatarController extends Controller
         return response($bytes, 200, [
             'Content-Type' => $avatar->mime,
             'Content-Length' => (string) strlen($bytes),
-            'Cache-Control' => 'public, max-age=31536000, immutable',
+            'Cache-Control' => $versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=300, must-revalidate',
+            'ETag' => '"'.$avatar->version.'"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }
