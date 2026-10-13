@@ -194,15 +194,23 @@ final class PdfGuard
     private static function inflate(string $data): string|false
     {
         $data = ltrim($data, "\r\n");
-        foreach ([
-            fn () => @gzuncompress($data, self::MAX_STREAM),
-            fn () => @zlib_decode($data, self::MAX_STREAM),
-            fn () => strlen($data) > 2 ? @gzinflate(substr($data, 2), self::MAX_STREAM) : false,
-        ] as $try) {
-            $out = $try();
-            if (is_string($out)) {
-                return $out;
+
+        // zlib raises a PHP warning on bad data. The "@" operator is not honoured everywhere (PHPUnit turns the
+        // warning into an exception), so swallow warnings with our own handler while decoding.
+        set_error_handler(static fn (): bool => true);
+        try {
+            foreach ([
+                fn () => gzuncompress($data, self::MAX_STREAM),
+                fn () => zlib_decode($data, self::MAX_STREAM),
+                fn () => strlen($data) > 2 ? gzinflate(substr($data, 2), self::MAX_STREAM) : false,
+            ] as $try) {
+                $out = $try();
+                if (is_string($out)) {
+                    return $out;
+                }
             }
+        } finally {
+            restore_error_handler();
         }
 
         return false;
