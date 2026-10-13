@@ -111,3 +111,7 @@ Frontend on Vercel + API on any PHP host: set the frontend variables `VITE_API_U
 
 The project uses **MySQL** only (`DB_CONNECTION=mysql`, plus `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` in `.env`).
 To run the tests, create an empty database called `portfolio_test` (or change `DB_DATABASE` in `phpunit.xml`): the tests wipe it.
+
+## Encrypted login
+
+The admin login and the password change are encrypted in the browser for each request (ECDH P-256 + AES-256-GCM, see `app/Support/SealedPayload.php` and the front-end's `src/lib/sealed.js`), on top of HTTPS. Each key works once and expires after 90 seconds. Deploy the API and the front-end together; `REQUIRE_SEALED_LOGIN=false` temporarily accepts the old readable login while one side is still old.

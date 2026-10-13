@@ -8,6 +8,7 @@ use App\Http\Requests\LoginRequest;
 use App\Models\User;
 use App\Support\AdminSessions;
 use App\Support\LoginGate;
+use App\Support\SealedPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -38,6 +39,12 @@ class AuthController extends Controller
         }
 
         return response()->noContent()->withCookie(LoginGate::open($request));
+    }
+
+    /** GET /auth/challenge, GET /admin/challenge — a one-time public key the browser uses to encrypt the next request. */
+    public function challenge(): JsonResponse
+    {
+        return response()->json(['data' => SealedPayload::challenge()]);
     }
 
     /** GET /auth/gate — 204 while the login cookie is valid, otherwise 404. */

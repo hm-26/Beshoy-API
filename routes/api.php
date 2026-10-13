@@ -51,7 +51,9 @@ Route::prefix('auth')->group(function () {
     // secret login link: the secret is checked here, the answer is a short-lived HttpOnly cookie that /login requires
     Route::post('/gate', [AuthController::class, 'openGate'])->middleware('throttle:gate');
     Route::get('/gate', [AuthController::class, 'gateStatus'])->middleware('throttle:60,1');
-    Route::post('/login', [AuthController::class, 'login'])->middleware(['login.gate', 'throttle:login']);
+    // one-time key for encrypting the login body (see App\Support\SealedPayload)
+    Route::get('/challenge', [AuthController::class, 'challenge'])->middleware(['login.gate', 'throttle:60,1']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware(['login.gate', 'sealed', 'throttle:login']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
@@ -69,7 +71,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:120,1'])-
     Route::post('/profile/avatar', [AvatarController::class, 'store']);
     Route::delete('/profile/avatar', [AvatarController::class, 'destroy']);
 
-    Route::put('/password', [AdminPasswordController::class, 'update']);
+    Route::get('/challenge', [AuthController::class, 'challenge']);
+    Route::put('/password', [AdminPasswordController::class, 'update'])->middleware('sealed');
 
     Route::get('/settings', [AdminSettingsController::class, 'show']);
     Route::put('/settings', [AdminSettingsController::class, 'update']);

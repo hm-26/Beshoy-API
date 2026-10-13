@@ -122,4 +122,8 @@ return [
     // Set ADMIN_PASSWORD_CODE in the environment (>= 6 chars). Empty => changing the password from the site is disabled.
     'password_change_code' => env('ADMIN_PASSWORD_CODE', ''),
 
+    // The login and the password change must arrive encrypted (App\Support\SealedPayload). Set to false only to let an
+    // older front-end keep working while you deploy both halves.
+    'require_sealed' => filter_var(env('REQUIRE_SEALED_LOGIN', true), FILTER_VALIDATE_BOOLEAN),
+
 ];
