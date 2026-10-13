@@ -10,7 +10,7 @@ return new class extends Migration
     {
         // How many devices may be signed in to the admin panel at the same time (chosen in Admin > Settings).
         Schema::table('users', function (Blueprint $table) {
-            $table->unsignedTinyInteger('max_devices')->default(1);
+            $table->unsignedTinyInteger('max_devices')->default(4);
         });
     }
 

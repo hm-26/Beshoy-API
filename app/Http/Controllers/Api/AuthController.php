@@ -85,7 +85,7 @@ class AuthController extends Controller
         $remember = (bool) $request->validated('remember', false);
         $expires = now()->addHours($remember ? self::REMEMBER_HOURS : self::TOKEN_HOURS);
 
-        // The admin chooses (Admin > Settings) how many devices may be signed in at once; the default is 1.
+        // The admin chooses (Admin > Settings) how many devices may be signed in at once; the default is 4.
         // Devices that are already signed in keep their place: a new one has to wait until one of them signs out
         // (or goes idle). The password was checked first, so this is never shown to strangers.
         $device = $this->deviceId($request);
