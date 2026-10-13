@@ -14,14 +14,22 @@ use App\Models\User;
 class AdminSessions
 {
     public const IDLE_MINUTES = 10;
-    public const DEFAULT_DEVICES = 4;   // used until the admin picks a number in Admin > Settings
+    public const DEFAULT_DEVICES = 4;           // used until the admin picks a number in Admin > Settings
     public const MIN_DEVICES = 1;
-    public const MAX_DEVICES = 5;
+    public const MAX_DEVICES = 1_000_000_000;   // "unlimited" is stored as 0 and has its own switch in the settings
 
-    /** The admin's chosen limit, kept inside 1..5. Falls back to DEFAULT_DEVICES until the migration has been run. */
-    public static function limit(User $user): int
+    /**
+     * How many devices may be signed in at once: a number >= 1, or null for "no limit".
+     * Falls back to DEFAULT_DEVICES until the admin chooses (or the migration has been run).
+     */
+    public static function limit(User $user): ?int
     {
-        return max(self::MIN_DEVICES, min(self::MAX_DEVICES, (int) ($user->max_devices ?? self::DEFAULT_DEVICES)));
+        $value = $user->max_devices;
+        if ($value === null) {
+            return self::DEFAULT_DEVICES;
+        }
+
+        return (int) $value === 0 ? null : max(self::MIN_DEVICES, min(self::MAX_DEVICES, (int) $value));
     }
 
     /** Query of the user's tokens that are currently open sessions. */

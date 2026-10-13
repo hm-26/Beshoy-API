@@ -92,7 +92,8 @@ class AuthController extends Controller
         $tokenName = 'admin-panel:'.hash('sha256', $device);
 
         $others = AdminSessions::active($user)->where('name', '!=', $tokenName)->pluck('id');
-        if ($others->count() >= AdminSessions::limit($user)) {
+        $limit = AdminSessions::limit($user); // null = unlimited
+        if ($limit !== null && $others->count() >= $limit) {
             return response()->json([
                 'message' => 'The maximum number of signed-in devices is reached. Sign out on another device first, then try again.',
                 'code' => 'session_active',

@@ -16,15 +16,16 @@ class AdminSettingsController extends Controller
         return response()->json(['data' => $this->payload($request->user())]);
     }
 
-    /** PUT /admin/settings  { maxDevices: 1..5 } */
+    /** PUT /admin/settings  { maxDevices: 1..1,000,000,000, or null for unlimited } */
     public function update(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'maxDevices' => ['required', 'integer', 'between:'.AdminSessions::MIN_DEVICES.','.AdminSessions::MAX_DEVICES],
+            'maxDevices' => ['present', 'nullable', 'integer', 'between:'.AdminSessions::MIN_DEVICES.','.AdminSessions::MAX_DEVICES],
         ]);
 
         $user = $request->user();
-        $user->forceFill(['max_devices' => $data['maxDevices']])->save();
+        $user->forceFill(['max_devices' => $data['maxDevices'] ?? 0])  // 0 = unlimited
+            ->save();
 
         return response()->json(['data' => $this->payload($user)]);
     }
@@ -32,7 +33,7 @@ class AdminSettingsController extends Controller
     private function payload(User $user): array
     {
         return [
-            'maxDevices' => AdminSessions::limit($user),
+            'maxDevices' => AdminSessions::limit($user),   // null = unlimited
             'activeDevices' => AdminSessions::active($user)->count(),
             'maxAllowed' => AdminSessions::MAX_DEVICES,
         ];
