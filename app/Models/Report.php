@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Casts\SafeEncrypted;
+use App\Casts\SafeEncryptedJson;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -15,10 +17,24 @@ class Report extends Model
 
     protected function casts(): array
     {
+        // Everything written in a report is stored encrypted. Only what the database must filter or sort by
+        // (`severity`, `published`) stays readable.
         return [
-            'request' => 'array',
-            'response' => 'array',
-            'ar' => 'array',
+            'platform' => SafeEncrypted::class,
+            'program_type' => SafeEncrypted::class,
+            'bounty' => SafeEncrypted::class,
+            'asset' => SafeEncrypted::class,
+            'weakness' => SafeEncrypted::class,
+            'title' => SafeEncrypted::class,
+            'summary' => SafeEncrypted::class,
+            'steps_to_reproduce' => SafeEncrypted::class,
+            'supporting_references' => SafeEncrypted::class,
+            'endpoint' => SafeEncrypted::class,
+            'impact' => SafeEncrypted::class,
+            'recommendation' => SafeEncrypted::class,
+            'request' => SafeEncryptedJson::class,
+            'response' => SafeEncryptedJson::class,
+            'ar' => SafeEncryptedJson::class,
             'published' => 'boolean',
         ];
     }

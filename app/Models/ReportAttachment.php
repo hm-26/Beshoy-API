@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\SafeEncrypted;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
@@ -55,7 +56,13 @@ class ReportAttachment extends Model
 
     protected function casts(): array
     {
-        return ['size' => 'integer', 'sort_order' => 'integer'];
+        return [
+            'original_name' => SafeEncrypted::class, // a file name can give away what the file is
+            'caption' => SafeEncrypted::class,
+            'caption_ar' => SafeEncrypted::class,
+            'size' => 'integer',
+            'sort_order' => 'integer',
+        ];
     }
 
     protected static function booted(): void

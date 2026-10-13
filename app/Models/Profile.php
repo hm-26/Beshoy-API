@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Casts\SafeEncrypted;
+use App\Casts\SafeEncryptedJson;
 use Illuminate\Database\Eloquent\Model;
 
 class Profile extends Model
@@ -16,7 +18,15 @@ class Profile extends Model
 
     protected function casts(): array
     {
-        return ['skills' => 'array', 'contact' => 'array', 'ar' => 'array'];
+        return [
+            'name' => SafeEncrypted::class,
+            'role' => SafeEncrypted::class,
+            'bio' => SafeEncrypted::class,
+            'location' => SafeEncrypted::class,
+            'skills' => SafeEncryptedJson::class,
+            'contact' => SafeEncryptedJson::class,
+            'ar' => SafeEncryptedJson::class,
+        ];
     }
 
     /** The site has a single profile row. */
