@@ -13,6 +13,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Cookie;
 
@@ -20,6 +21,15 @@ class AuthController extends Controller
 {
     private const TOKEN_HOURS = 12;          // normal session
     private const REMEMBER_HOURS = 24 * 7;   // "keep me signed in"
+
+    // A session counts as "open on another device" only while it is being used. The admin panel pings the API every
+    // few minutes, so an open tab stays active; a closed tab / dead phone goes idle and stops blocking after this long.
+    public const IDLE_MINUTES = 10;
+
+    // Long-lived HttpOnly cookie that tells the API "this is the same browser as before", so you are never locked out
+    // by your own earlier session (e.g. you closed the tab and sign in again from the same laptop).
+    private const DEVICE_PLAIN = 'admin_device';
+    private const DEVICE_SECURE = '__Host-admin_device';
 
     /** POST /auth/gate  { secret } — opens the login for a short time (HttpOnly cookie). Wrong secret => plain 404. */
     public function openGate(Request $request): Response
@@ -78,9 +88,21 @@ class AuthController extends Controller
         $remember = (bool) $request->validated('remember', false);
         $expires = now()->addHours($remember ? self::REMEMBER_HOURS : self::TOKEN_HOURS);
 
-        // One active session: signing in revokes every earlier token (also kills any leaked/old one).
+        // One active session at a time, and the device that is already signed in wins: a second device must wait until
+        // the first one signs out (or goes idle). The password was checked first, so this is never shown to strangers.
+        $device = $this->deviceId($request);
+        $tokenName = 'admin-panel:'.hash('sha256', $device);
+
+        if ($this->hasActiveSessionElsewhere($user, $tokenName)) {
+            return response()->json([
+                'message' => 'Another device is already signed in. Sign out there first, then try again.',
+                'code' => 'session_active',
+            ], 409);
+        }
+
+        // Nobody else is active: drop every old token (also kills any leaked/stale one) and start a fresh session.
         $user->tokens()->delete();
-        $token = $user->createToken('admin-panel', ['admin'], $expires);
+        $token = $user->createToken($tokenName, ['admin'], $expires);
 
         // The token is NOT returned in the body: it only travels in an HttpOnly cookie.
         return response()
@@ -89,7 +111,45 @@ class AuthController extends Controller
                 'user' => $this->payload($user),
             ]])
             ->withCookie($this->cookie($request, $token->plainTextToken, $remember ? $expires : 0))
+            ->withCookie($this->deviceCookie($request, $device))
             ->withCookie(LoginGate::close($request)); // the gate is single-use: next sign-in needs the link again
+    }
+
+    /** True when a token that belongs to a DIFFERENT browser is still valid and was used recently. */
+    private function hasActiveSessionElsewhere(User $user, string $ownTokenName): bool
+    {
+        $since = now()->subMinutes(self::IDLE_MINUTES);
+
+        return $user->tokens()
+            ->where('name', '!=', $ownTokenName)
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->where(fn ($q) => $q
+                ->where('last_used_at', '>', $since)
+                ->orWhere(fn ($q2) => $q2->whereNull('last_used_at')->where('created_at', '>', $since)))
+            ->exists();
+    }
+
+    private function deviceId(Request $request): string
+    {
+        $name = $request->isSecure() ? self::DEVICE_SECURE : self::DEVICE_PLAIN;
+        $value = $request->cookie($name);
+
+        return is_string($value) && preg_match('/^[A-Za-z0-9]{40}$/', $value) ? $value : Str::random(40);
+    }
+
+    private function deviceCookie(Request $request, string $value): Cookie
+    {
+        return new Cookie(
+            $request->isSecure() ? self::DEVICE_SECURE : self::DEVICE_PLAIN,
+            $value,
+            now()->addYear(),
+            '/',
+            null,          // host-only: required by the __Host- prefix
+            $request->isSecure(),
+            true,          // HttpOnly
+            false,
+            Cookie::SAMESITE_STRICT
+        );
     }
 
     public function me(Request $request): JsonResponse
