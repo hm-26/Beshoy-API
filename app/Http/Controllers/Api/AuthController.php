@@ -99,8 +99,20 @@ class AuthController extends Controller
             ], 409);
         }
 
-        // Keep the other devices that are active; drop everything else (this browser's old token, expired and idle ones).
-        $user->tokens()->whereNotIn('id', $others)->delete();
+        // Clean up old tokens, but never log out a device that used "Keep me signed in": it may simply be closed for now.
+        // Removed: this browser's own old token, expired tokens, and idle normal (12 h) sessions. Kept: active devices
+        // and idle remembered (7 day) sessions.
+        $stale = $user->tokens()->get()->filter(function ($t) use ($others, $tokenName) {
+            if ($others->contains($t->id)) {
+                return false;
+            }
+            if ($t->name === $tokenName || ! $t->expires_at || $t->expires_at->isPast()) {
+                return true;
+            }
+
+            return ($t->expires_at->getTimestamp() - $t->created_at->getTimestamp()) <= self::TOKEN_HOURS * 3600;
+        })->pluck('id');
+        $user->tokens()->whereIn('id', $stale)->delete();
         $token = $user->createToken($tokenName, ['admin'], $expires);
 
         // The token is NOT returned in the body: it only travels in an HttpOnly cookie.
