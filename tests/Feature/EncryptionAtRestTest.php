@@ -14,6 +14,12 @@ class EncryptionAtRestTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['auth.seal_public_api' => false]); // these tests read the plain JSON; sealing has its own test below
+    }
+
     public function test_report_text_is_encrypted_in_the_database_but_served_normally(): void
     {
         $user = new User(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'a-long-password-123']);
@@ -58,5 +64,13 @@ class EncryptionAtRestTest extends TestCase
         $p = Profile::first();
         $this->assertSame('Plain Name', $p->name);
         $this->assertSame(['a', 'b'], $p->skills);
+    }
+
+    public function test_public_api_refuses_a_request_that_does_not_do_the_seal_handshake(): void
+    {
+        config(['auth.seal_public_api' => true]);
+
+        $this->getJson('/api/profile')->assertStatus(400)->assertJsonPath('code', 'sealed_required');
+        $this->getJson('/api/reports')->assertStatus(400);
     }
 }

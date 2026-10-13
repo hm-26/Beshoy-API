@@ -14,7 +14,7 @@ return [
         explode(',', env('CORS_ALLOWED_ORIGINS', env('APP_ENV', 'production') === 'production' ? '' : 'http://localhost:5173'))
     ))),
     'allowed_origins_patterns' => [],
-    'allowed_headers' => ['Accept', 'Authorization', 'Content-Type', 'Range', 'X-Requested-With'],
+    'allowed_headers' => ['Accept', 'Authorization', 'Content-Type', 'Range', 'X-Requested-With', 'X-Seal-Key', 'X-Seal-Nonce'],
     'exposed_headers' => ['Content-Range', 'Accept-Ranges', 'Content-Length'],
     'max_age' => 600,
     'supports_credentials' => false,

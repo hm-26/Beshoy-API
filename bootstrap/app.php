@@ -3,6 +3,7 @@
 use App\Http\Middleware\CookieAuth;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\OpenSealed;
+use App\Http\Middleware\SealResponse;
 use App\Http\Middleware\RequireLoginGate;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -33,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureAdmin::class,
             'login.gate' => RequireLoginGate::class,
             'sealed' => OpenSealed::class,
+            'seal' => SealResponse::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

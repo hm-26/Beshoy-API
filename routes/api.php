@@ -22,10 +22,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
 // Generous per-IP cap on the public read endpoints: stops scraping / request floods without touching normal visitors.
 Route::middleware('throttle:300,1')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'show']);
+    // profile + reports: encrypted for the asking browser (see App\Http\Middleware\SealResponse)
+    Route::get('/profile', [ProfileController::class, 'show'])->middleware('seal:required');
     Route::get('/profile/avatar', [AvatarController::class, 'show']);
-    Route::get('/reports', [ReportController::class, 'index']);
-    Route::get('/reports/{id}', [ReportController::class, 'show'])->whereNumber('id');
+    Route::get('/reports', [ReportController::class, 'index'])->middleware('seal:required');
+    Route::get('/reports/{id}', [ReportController::class, 'show'])->whereNumber('id')->middleware('seal:required');
     Route::get('/visits', [VisitController::class, 'show']);
 });
 // Counts this browser once (HttpOnly cookie) and returns the unique-visitor total.
@@ -66,7 +67,7 @@ Route::prefix('auth')->group(function () {
 | Admin API — requires a valid token that belongs to an admin user
 |--------------------------------------------------------------------------
 */
-Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:120,1'])->group(function () {
+Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:120,1', 'seal'])->group(function () {
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::post('/profile/avatar', [AvatarController::class, 'store']);
     Route::delete('/profile/avatar', [AvatarController::class, 'destroy']);

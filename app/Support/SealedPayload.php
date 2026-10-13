@@ -94,6 +94,46 @@ final class SealedPayload
         return is_array($json) ? $json : null;
     }
 
+    public const REPLY_INFO = 'glx-sealed-reply-v1';
+
+    /**
+     * Encrypts a response body for the browser that asked for it. The browser sent a throw-away public key and a random
+     * nonce with its request; the server makes its own throw-away key pair, so every response has its own key and
+     * nothing has to be stored. Returns { key, iv, data } (base64url), or null when the browser's key is not valid.
+     */
+    public static function sealReply(string $plain, string $clientKey, string $nonce): ?array
+    {
+        if (! preg_match('/^[A-Za-z0-9_-]{16,64}$/', $nonce)) {
+            return null;
+        }
+        $point = self::unb64u($clientKey);
+        if ($point === null || strlen($point) !== 65 || $point[0] !== "\x04") {
+            return null;
+        }
+        $clientPem = "-----BEGIN PUBLIC KEY-----\n".chunk_split(base64_encode(hex2bin(self::SPKI_PREFIX).$point), 64, "\n")."-----END PUBLIC KEY-----\n";
+
+        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+        if ($key === false) {
+            return null;
+        }
+        $secret = @openssl_pkey_derive($clientPem, $key, 32);
+        if (! is_string($secret) || $secret === '') {
+            return null;
+        }
+        $ec = openssl_pkey_get_details($key)['ec'];
+        $serverPoint = "\x04".str_pad($ec['x'], 32, "\0", STR_PAD_LEFT).str_pad($ec['y'], 32, "\0", STR_PAD_LEFT);
+
+        $aesKey = hash_hkdf('sha256', $secret, 32, self::REPLY_INFO, $nonce);
+        $iv = random_bytes(12);
+        $tag = '';
+        $cipher = openssl_encrypt($plain, 'aes-256-gcm', $aesKey, OPENSSL_RAW_DATA, $iv, $tag, $nonce, 16);
+        if ($cipher === false) {
+            return null;
+        }
+
+        return ['key' => self::b64u($serverPoint), 'iv' => self::b64u($iv), 'data' => self::b64u($cipher.$tag)];
+    }
+
     private static function b64u(string $raw): string
     {
         return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');

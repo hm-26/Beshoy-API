@@ -124,6 +124,10 @@ return [
 
     // The login and the password change must arrive encrypted (App\Support\SealedPayload). Set to false only to let an
     // older front-end keep working while you deploy both halves.
+    // Public API answers (profile, reports) are encrypted for the browser that asked and refused to anyone who does not
+    // do the handshake. Set false to read them with curl / Postman while debugging.
+    'seal_public_api' => filter_var(env('SEAL_PUBLIC_API', true), FILTER_VALIDATE_BOOLEAN),
+
     'require_sealed' => filter_var(env('REQUIRE_SEALED_LOGIN', true), FILTER_VALIDATE_BOOLEAN),
 
 ];

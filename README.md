@@ -115,3 +115,7 @@ To run the tests, create an empty database called `portfolio_test` (or change `D
 ## Encrypted login
 
 The admin login and the password change are encrypted in the browser for each request (ECDH P-256 + AES-256-GCM, see `app/Support/SealedPayload.php` and the front-end's `src/lib/sealed.js`), on top of HTTPS. Each key works once and expires after 90 seconds. Deploy the API and the front-end together; `REQUIRE_SEALED_LOGIN=false` temporarily accepts the old readable login while one side is still old.
+
+## Encrypted responses
+
+`GET /api/profile`, `/api/reports`, `/api/reports/{id}` (and every `/api/admin/*` JSON answer) are encrypted for the browser that asked: the browser sends `X-Seal-Key` / `X-Seal-Nonce` and gets `{ "sealed": { key, iv, data } }` back, so a proxy such as Burp only sees ciphertext. The public routes refuse a request without the handshake (set `SEAL_PUBLIC_API=false` to read them with curl while debugging). The content is public by design, so this hides it from interception and casual scraping, not from a client that implements the handshake.
