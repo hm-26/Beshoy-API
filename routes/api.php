@@ -68,8 +68,10 @@ Route::prefix('auth')->group(function () {
 | Admin API — requires a valid token that belongs to an admin user
 |--------------------------------------------------------------------------
 */
+// Every admin write that carries a JSON body must arrive sealed (ECDH + AES-GCM, one-time key): the report text, profile
+// and settings never cross the wire as readable JSON. File uploads (multipart) and DELETEs carry no JSON body.
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:120,1', 'seal'])->group(function () {
-    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile', [ProfileController::class, 'update'])->middleware('sealed');
     Route::post('/profile/avatar', [AvatarController::class, 'store']);
     Route::delete('/profile/avatar', [AvatarController::class, 'destroy']);
 
@@ -77,20 +79,20 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:120,1', '
     Route::put('/password', [AdminPasswordController::class, 'update'])->middleware('sealed');
 
     Route::get('/settings', [AdminSettingsController::class, 'show']);
-    Route::put('/settings', [AdminSettingsController::class, 'update']);
+    Route::put('/settings', [AdminSettingsController::class, 'update'])->middleware('sealed');
 
     Route::get('/messages', [AdminMessageController::class, 'index']);
     Route::get('/messages/unread-count', [AdminMessageController::class, 'unreadCount']);
-    Route::patch('/messages/{message}', [AdminMessageController::class, 'update'])->whereNumber('message');
+    Route::patch('/messages/{message}', [AdminMessageController::class, 'update'])->whereNumber('message')->middleware('sealed');
     Route::delete('/messages/{message}', [AdminMessageController::class, 'destroy'])->whereNumber('message');
 
     Route::get('/reports', [AdminReportController::class, 'index']);
-    Route::post('/reports', [AdminReportController::class, 'store']);
+    Route::post('/reports', [AdminReportController::class, 'store'])->middleware('sealed');
     Route::get('/reports/{report}', [AdminReportController::class, 'show'])->whereNumber('report');
-    Route::put('/reports/{report}', [AdminReportController::class, 'update'])->whereNumber('report');
+    Route::put('/reports/{report}', [AdminReportController::class, 'update'])->whereNumber('report')->middleware('sealed');
     Route::delete('/reports/{report}', [AdminReportController::class, 'destroy'])->whereNumber('report');
 
     Route::post('/reports/{report}/attachments', [AdminAttachmentController::class, 'store'])->whereNumber('report');
-    Route::patch('/attachments/{attachment}', [AdminAttachmentController::class, 'update'])->whereNumber('attachment');
+    Route::patch('/attachments/{attachment}', [AdminAttachmentController::class, 'update'])->whereNumber('attachment')->middleware('sealed');
     Route::delete('/attachments/{attachment}', [AdminAttachmentController::class, 'destroy'])->whereNumber('attachment');
 });
