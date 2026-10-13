@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Middleware\CookieAuth;
 use App\Http\Requests\LoginRequest;
 use App\Models\User;
+use App\Support\AdminSessions;
 use App\Support\LoginGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,10 +22,6 @@ class AuthController extends Controller
 {
     private const TOKEN_HOURS = 12;          // normal session
     private const REMEMBER_HOURS = 24 * 7;   // "keep me signed in"
-
-    // A session counts as "open on another device" only while it is being used. The admin panel pings the API every
-    // few minutes, so an open tab stays active; a closed tab / dead phone goes idle and stops blocking after this long.
-    public const IDLE_MINUTES = 10;
 
     // Long-lived HttpOnly cookie that tells the API "this is the same browser as before", so you are never locked out
     // by your own earlier session (e.g. you closed the tab and sign in again from the same laptop).
@@ -88,20 +85,22 @@ class AuthController extends Controller
         $remember = (bool) $request->validated('remember', false);
         $expires = now()->addHours($remember ? self::REMEMBER_HOURS : self::TOKEN_HOURS);
 
-        // One active session at a time, and the device that is already signed in wins: a second device must wait until
-        // the first one signs out (or goes idle). The password was checked first, so this is never shown to strangers.
+        // The admin chooses (Admin > Settings) how many devices may be signed in at once; the default is 1.
+        // Devices that are already signed in keep their place: a new one has to wait until one of them signs out
+        // (or goes idle). The password was checked first, so this is never shown to strangers.
         $device = $this->deviceId($request);
         $tokenName = 'admin-panel:'.hash('sha256', $device);
 
-        if ($this->hasActiveSessionElsewhere($user, $tokenName)) {
+        $others = AdminSessions::active($user)->where('name', '!=', $tokenName)->pluck('id');
+        if ($others->count() >= AdminSessions::limit($user)) {
             return response()->json([
-                'message' => 'Another device is already signed in. Sign out there first, then try again.',
+                'message' => 'The maximum number of signed-in devices is reached. Sign out on another device first, then try again.',
                 'code' => 'session_active',
             ], 409);
         }
 
-        // Nobody else is active: drop every old token (also kills any leaked/stale one) and start a fresh session.
-        $user->tokens()->delete();
+        // Keep the other devices that are active; drop everything else (this browser's old token, expired and idle ones).
+        $user->tokens()->whereNotIn('id', $others)->delete();
         $token = $user->createToken($tokenName, ['admin'], $expires);
 
         // The token is NOT returned in the body: it only travels in an HttpOnly cookie.
@@ -113,20 +112,6 @@ class AuthController extends Controller
             ->withCookie($this->cookie($request, $token->plainTextToken, $remember ? $expires : 0))
             ->withCookie($this->deviceCookie($request, $device))
             ->withCookie(LoginGate::close($request)); // the gate is single-use: next sign-in needs the link again
-    }
-
-    /** True when a token that belongs to a DIFFERENT browser is still valid and was used recently. */
-    private function hasActiveSessionElsewhere(User $user, string $ownTokenName): bool
-    {
-        $since = now()->subMinutes(self::IDLE_MINUTES);
-
-        return $user->tokens()
-            ->where('name', '!=', $ownTokenName)
-            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
-            ->where(fn ($q) => $q
-                ->where('last_used_at', '>', $since)
-                ->orWhere(fn ($q2) => $q2->whereNull('last_used_at')->where('created_at', '>', $since)))
-            ->exists();
     }
 
     private function deviceId(Request $request): string

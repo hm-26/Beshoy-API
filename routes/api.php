@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminAttachmentController;
 use App\Http\Controllers\Api\AdminMessageController;
 use App\Http\Controllers\Api\AdminReportController;
+use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ContactController;
@@ -62,6 +63,9 @@ Route::prefix('auth')->group(function () {
 */
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:120,1'])->group(function () {
     Route::put('/profile', [ProfileController::class, 'update']);
+
+    Route::get('/settings', [AdminSettingsController::class, 'show']);
+    Route::put('/settings', [AdminSettingsController::class, 'update']);
 
     Route::get('/messages', [AdminMessageController::class, 'index']);
     Route::get('/messages/unread-count', [AdminMessageController::class, 'unreadCount']);
