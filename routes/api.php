@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AdminReportController;
 use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AvatarController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ReportController;
@@ -21,6 +22,7 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 // Generous per-IP cap on the public read endpoints: stops scraping / request floods without touching normal visitors.
 Route::middleware('throttle:300,1')->group(function () {
     Route::get('/profile', [ProfileController::class, 'show']);
+    Route::get('/profile/avatar', [AvatarController::class, 'show']);
     Route::get('/reports', [ReportController::class, 'index']);
     Route::get('/reports/{id}', [ReportController::class, 'show'])->whereNumber('id');
     Route::get('/visits', [VisitController::class, 'show']);
@@ -63,6 +65,8 @@ Route::prefix('auth')->group(function () {
 */
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:120,1'])->group(function () {
     Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile/avatar', [AvatarController::class, 'store']);
+    Route::delete('/profile/avatar', [AvatarController::class, 'destroy']);
 
     Route::get('/settings', [AdminSettingsController::class, 'show']);
     Route::put('/settings', [AdminSettingsController::class, 'update']);

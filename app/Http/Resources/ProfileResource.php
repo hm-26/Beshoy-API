@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Profile;
+use App\Models\ProfileAvatar;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -29,6 +30,8 @@ class ProfileResource extends JsonResource
             'skills' => $p->skills ?? [],
             'contact' => (object) $contact,
             'ar' => $p->ar,
+            // null = no custom picture (the site shows its default one); otherwise GET /profile/avatar?v=<this value>
+            'avatarVersion' => ProfileAvatar::currentVersion(),
         ];
     }
 }
