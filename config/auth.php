@@ -118,4 +118,8 @@ return [
     'login_secret' => env('ADMIN_LOGIN_SECRET', ''),
     'login_gate_minutes' => env('ADMIN_LOGIN_GATE_MINUTES', 10),
 
+    // Verification code the admin must type (besides the current password) to change the password from Admin > Settings.
+    // Set ADMIN_PASSWORD_CODE in the environment (>= 6 chars). Empty => changing the password from the site is disabled.
+    'password_change_code' => env('ADMIN_PASSWORD_CODE', ''),
+
 ];

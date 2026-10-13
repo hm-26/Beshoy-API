@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminAttachmentController;
 use App\Http\Controllers\Api\AdminMessageController;
+use App\Http\Controllers\Api\AdminPasswordController;
 use App\Http\Controllers\Api\AdminReportController;
 use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AttachmentController;
@@ -67,6 +68,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:120,1'])-
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::post('/profile/avatar', [AvatarController::class, 'store']);
     Route::delete('/profile/avatar', [AvatarController::class, 'destroy']);
+
+    Route::put('/password', [AdminPasswordController::class, 'update']);
 
     Route::get('/settings', [AdminSettingsController::class, 'show']);
     Route::put('/settings', [AdminSettingsController::class, 'update']);
