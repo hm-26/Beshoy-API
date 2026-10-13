@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AttachmentResource;
 use App\Models\Report;
 use App\Models\ReportAttachment;
+use App\Support\PdfGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -110,6 +111,11 @@ class AdminAttachmentController extends Controller
         };
         if (! $ok) {
             $fail("The content of \"{$file->getClientOriginalName()}\" does not look like a .$ext file.");
+        }
+
+        // PDFs are shown inline from the site's own origin, so one that can run JavaScript / auto-actions is refused.
+        if ($ext === 'pdf' && ($why = PdfGuard::problem((string) $file->getRealPath()))) {
+            $fail("\"{$file->getClientOriginalName()}\" was rejected: {$why}. Remove JavaScript/actions from the PDF (or print it to a fresh PDF) and upload again.");
         }
 
         return [$ext, $kind, $mime];

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ReportAttachment;
+use App\Support\PdfGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -26,17 +27,25 @@ class AttachmentController extends Controller
             $type .= '; charset=utf-8';
         }
 
+        // A PDF that carries active content (e.g. uploaded before the upload check existed) is never rendered by the
+        // browser: it is forced to a download as an opaque binary, so its scripts cannot run on this origin.
+        $unsafePdf = $attachment->extension === 'pdf'
+            && ! PdfGuard::isSafeStored($disk->path($attachment->path), $attachment->id);
+        if ($unsafePdf) {
+            $type = 'application/octet-stream';
+        }
+
         $response = response()->file($disk->path($attachment->path), [
             'Content-Type' => $type,
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'private, max-age=3600',
-            // Nothing we serve needs to run scripts. (PDFs are left alone: the browser's viewer needs more room.)
-            ...($attachment->extension === 'pdf' ? [] : ['Content-Security-Policy' => "default-src 'none'; sandbox"]),
+            // Nothing we serve needs to run scripts. (Clean PDFs are left alone: the browser's viewer needs more room.)
+            ...($attachment->extension === 'pdf' && ! $unsafePdf ? [] : ['Content-Security-Policy' => "default-src 'none'; sandbox"]),
         ]);
 
         $fallback = str_replace(['%', '/', '\\'], '_', Str::ascii($attachment->original_name)) ?: 'file';
         $response->setContentDisposition(
-            $request->boolean('download') ? ResponseHeaderBag::DISPOSITION_ATTACHMENT : ResponseHeaderBag::DISPOSITION_INLINE,
+            ($request->boolean('download') || $unsafePdf) ? ResponseHeaderBag::DISPOSITION_ATTACHMENT : ResponseHeaderBag::DISPOSITION_INLINE,
             $attachment->original_name,
             $fallback,
         );
