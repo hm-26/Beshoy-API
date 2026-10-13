@@ -25,6 +25,7 @@ Route::middleware('throttle:300,1')->group(function () {
     // profile + reports: encrypted for the asking browser (see App\Http\Middleware\SealResponse)
     Route::get('/profile', [ProfileController::class, 'show'])->middleware('seal:required');
     Route::get('/profile/avatar', [AvatarController::class, 'show']);
+    Route::get('/profile/avatar/sealed', [AvatarController::class, 'sealed'])->middleware('seal:required');
     Route::get('/reports', [ReportController::class, 'index'])->middleware('seal:required');
     Route::get('/reports/{id}', [ReportController::class, 'show'])->whereNumber('id')->middleware('seal:required');
     Route::get('/visits', [VisitController::class, 'show'])->middleware('seal');
@@ -33,7 +34,9 @@ Route::middleware('throttle:300,1')->group(function () {
 Route::post('/visits', [VisitController::class, 'hit'])->middleware(['seal', 'throttle:30,1']);
 
 // Contact form ("send through the website"). Strict per-IP limits, see the 'contact' limiter in AppServiceProvider.
-Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact');
+// The body is sealed (one-time key from the public /challenge below); throttle first so a flood does not burn challenges.
+Route::get('/challenge', [AuthController::class, 'challenge'])->middleware('throttle:30,1');
+Route::post('/contact', [ContactController::class, 'store'])->middleware(['throttle:contact', 'sealed']);
 
 // Attachment bytes (images / videos / documents). The URL is a short-lived *signed* link that the report JSON
 // hands out, so files of draft reports stay private and <img>/<video> tags work without an Authorization header.

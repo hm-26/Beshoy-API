@@ -17,6 +17,7 @@ class EncryptionAtRestTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['auth.require_sealed' => false]); // admin / contact writes are sealed in production; these tests post plain JSON
         config(['auth.seal_public_api' => false]); // these tests read the plain JSON; sealing has its own test below
     }
 

@@ -15,32 +15,55 @@ class AvatarController extends Controller
     private const MAX_PIXELS = 4000;   // per side (guards against decompression bombs)
 
     /**
-     * GET /profile/avatar — public.
-     *  - with ?v=<version> (what the app uses) the answer never changes, so it is cached for a long time;
-     *  - without it (favicon, link previews / og:image) the URL is stable, so it is cached only briefly and always
-     *    shows the CURRENT picture; with no picture uploaded it redirects to the site's default logo.
+     * GET /profile/avatar — public, but only a SMALL copy (128 px) for what cannot send the seal handshake: the browser-tab
+     * icon, link previews (og:image) and crawlers. The full-size picture is only served sealed (see sealed()).
+     * Without the GD extension, or with no picture uploaded, it redirects to the site's default logo.
      */
     public function show(Request $request): Response
     {
-        $versioned = $request->query('v') !== null;
         $avatar = ProfileAvatar::query()->first();
+        $bytes = $avatar ? base64_decode($avatar->data, true) : false;
+        $thumb = $bytes !== false ? $this->thumbnail($bytes) : null;
 
-        if (! $avatar) {
-            abort_if($versioned, 404);
-
+        if ($thumb === null) {
             return response('', 302, ['Location' => '/images/logo.png', 'Cache-Control' => 'public, max-age=300']);
         }
 
-        $bytes = base64_decode($avatar->data, true);
-        abort_if($bytes === false, 404);
-
-        return response($bytes, 200, [
-            'Content-Type' => $avatar->mime,
-            'Content-Length' => (string) strlen($bytes),
-            'Cache-Control' => $versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=300, must-revalidate',
-            'ETag' => '"'.$avatar->version.'"',
+        return response($thumb, 200, [
+            'Content-Type' => 'image/png',
+            'Content-Length' => (string) strlen($thumb),
+            'Cache-Control' => 'public, max-age=300, must-revalidate',
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    /** GET /profile/avatar/sealed — the full picture as { mime, image: base64 }; the seal middleware encrypts it for the asking browser. */
+    public function sealed(): JsonResponse
+    {
+        $avatar = ProfileAvatar::query()->first();
+        abort_if(! $avatar, 404);
+
+        return response()->json(['data' => ['mime' => $avatar->mime, 'image' => $avatar->data]]);
+    }
+
+    private function thumbnail(string $bytes): ?string
+    {
+        if (! function_exists('imagecreatefromstring')) {
+            return null;
+        }
+        $src = @imagecreatefromstring($bytes);
+        if ($src === false) {
+            return null;
+        }
+        $size = min(imagesx($src), imagesy($src), 128);
+        $dst = imagecreatetruecolor($size, $size);
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $size, $size, min(imagesx($src), imagesy($src)), min(imagesx($src), imagesy($src)));
+        ob_start();
+        imagepng($dst);
+
+        return (string) ob_get_clean();
     }
 
     /** POST /admin/profile/avatar — multipart: avatar (JPG / PNG / WebP). Replaces the current picture. */

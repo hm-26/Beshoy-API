@@ -13,6 +13,12 @@ class ContactTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['auth.require_sealed' => false]); // these tests post plain JSON; the sealed request body has its own test
+    }
+
     private function payload(array $override = []): array
     {
         return array_merge([
