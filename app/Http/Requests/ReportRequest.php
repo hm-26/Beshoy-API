@@ -24,7 +24,15 @@ class ReportRequest extends FormRequest
         $text = ['nullable', 'string', 'max:10000'];
         $short = ['nullable', 'string', 'max:255'];
 
+        $current = $this->route('report');
+        $unique = Rule::unique('reports', 'id');
+        if ($current) {
+            $unique = $unique->ignore($current instanceof \Illuminate\Database\Eloquent\Model ? $current->getKey() : $current);
+        }
+
         return [
+            // Optional custom report number. Blank = default behaviour (auto on create, unchanged on update).
+            'number' => ['nullable', 'integer', 'min:1', 'max:999999999', $unique],
             'title' => [...$req, 'string', 'max:255'],
             'summary' => [...$req, 'string', 'max:10000'],
             'severity' => ['nullable', Rule::in(self::SEVERITIES)],
@@ -57,6 +65,14 @@ class ReportRequest extends FormRequest
 
             'published' => ['sometimes', 'boolean'],
         ];
+    }
+
+    /** The custom report number the admin asked for, or null to keep the default behaviour. */
+    public function requestedNumber(): ?int
+    {
+        $n = $this->validated()['number'] ?? null;
+
+        return $n === null || $n === '' ? null : (int) $n;
     }
 
     /** Validated input (camelCase, as the React app sends it) -> database columns (snake_case). */
